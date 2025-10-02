@@ -1324,9 +1324,12 @@
     // Agregar marcadores de daños reales
     async function addSampleDamageMarkers() {
       try {
-        console.log('📍 Iniciando addSampleDamageMarkers()...');
+        console.log('📍 ===== INICIANDO addSampleDamageMarkers =====');
         console.log('📍 Mapa disponible:', !!map);
         console.log('📍 damageMarkers actuales:', damageMarkers.length);
+        console.log('📍 currentUser:', currentUser);
+        console.log('📍 getUserEmail():', getUserEmail());
+        console.log('📍 userProfile:', userProfile);
         
         // Esperar a que el mapa esté completamente inicializado
         if (!map) {
@@ -1348,23 +1351,36 @@
         console.log('📍 Cargando daños con coordenadas por defecto (Medellín)...');
         console.log('📍 Usuario autenticado:', getUserEmail());
         console.log('📍 Llamando a loadDamagesNearby()...');
+        
         const realDamages = await loadDamagesNearby();
+        console.log('📍 ===== RESULTADO DE loadDamagesNearby =====');
         console.log('📍 Daños obtenidos de la API:', realDamages.length);
+        console.log('📍 Tipo de datos:', typeof realDamages);
+        console.log('📍 Es array:', Array.isArray(realDamages));
         console.log('📍 Datos completos de la API:', realDamages);
         
-        if (realDamages && realDamages.length > 0) {
+        if (realDamages && Array.isArray(realDamages) && realDamages.length > 0) {
           console.log('✅ Cargando daños reales desde la API:', realDamages.length);
           
           // Limpiar marcadores existentes
+          console.log('🧹 Limpiando marcadores existentes...');
           damageMarkers.forEach(marker => {
             if (marker.marker) {
               map.removeLayer(marker.marker);
             }
           });
           damageMarkers = [];
+          console.log('🧹 Marcadores limpiados. damageMarkers.length:', damageMarkers.length);
           
           realDamages.forEach((damage, index) => {
-            console.log(`🔍 Procesando daño ${index + 1}:`, damage);
+            console.log(`🔍 ===== PROCESANDO DAÑO ${index + 1} =====`);
+            console.log(`🔍 Daño completo:`, damage);
+            
+            // Verificar que el daño tenga la estructura esperada
+            if (!damage || !damage.location) {
+              console.warn(`⚠️ Daño ${index + 1} no tiene estructura válida:`, damage);
+              return;
+            }
             
             // Manejar coordenadas que pueden estar como objetos $numberDouble
             const lat = typeof damage.location.latitude === 'object' 
@@ -1375,85 +1391,187 @@
               : damage.location.longitude;
             
             console.log(`📍 Coordenadas del daño ${index + 1}:`, { lat, lng });
+            console.log(`📍 Tipo de lat:`, typeof lat, 'Valor:', lat);
+            console.log(`📍 Tipo de lng:`, typeof lng, 'Valor:', lng);
+            
+            // Validar coordenadas
+            if (isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
+              console.warn(`⚠️ Coordenadas inválidas para daño ${index + 1}:`, { lat, lng });
+              return;
+            }
             
             const damageData = {
               id: damage._id,
               lat: parseFloat(lat),
               lng: parseFloat(lng),
-              title: `${damage.item} - ${damage.area} - Calificación R`,
-              description: damage.description,
-              image: damage.image,
-              severity: damage.severity,
-              category: damage.area,
-              timestamp: new Date(damage.createdAt).toISOString(),
+              title: `${damage.item || 'Sin título'} - ${damage.area || 'Sin área'} - Calificación R`,
+              description: damage.description || 'Sin descripción',
+              image: damage.image || 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=',
+              severity: damage.severity || 'medium',
+              category: damage.area || 'general',
+              timestamp: new Date(damage.createdAt || Date.now()).toISOString(),
               damageData: damage
             };
             
-            console.log(`📍 Agregando marcador ${index + 1}:`, damageData);
-            addDamageMarker(damageData);
+            console.log(`📍 Datos del marcador ${index + 1}:`, damageData);
+            console.log(`📍 Agregando marcador ${index + 1} al mapa...`);
+            
+            try {
+              addDamageMarker(damageData);
+              console.log(`✅ Marcador ${index + 1} agregado exitosamente`);
+            } catch (markerError) {
+              console.error(`❌ Error agregando marcador ${index + 1}:`, markerError);
+            }
           });
           
+          console.log('✅ ===== FINALIZANDO addSampleDamageMarkers =====');
           console.log('✅ Marcadores agregados. Total damageMarkers:', damageMarkers.length);
+          console.log('✅ Marcadores en el mapa:', map._layers);
+          
+          // Mostrar notificación de éxito
+          if (damageMarkers.length > 0) {
+            showNotification(`Se cargaron ${damageMarkers.length} oportunidades de servicio`, 'success');
+          }
         } else {
           console.log('⚠️ No se encontraron daños reales en la base de datos');
-          // NO mostrar notificación aquí porque puede ser que simplemente no haya daños en esa área
+          console.log('⚠️ realDamages:', realDamages);
+          console.log('⚠️ Es array:', Array.isArray(realDamages));
+          console.log('⚠️ Length:', realDamages ? realDamages.length : 'undefined');
+          
+          // Mostrar notificación informativa
+          showNotification('No hay oportunidades de servicio en tu área', 'info');
         }
       } catch (error) {
+        console.error('❌ ===== ERROR EN addSampleDamageMarkers =====');
         console.error('❌ Error cargando daños reales:', error);
         console.error('❌ Error stack:', error.stack);
-        showNotification('Error cargando daños desde el servidor', 'error');
+        console.error('❌ Error name:', error.name);
+        console.error('❌ Error message:', error.message);
+        showNotification('Error cargando oportunidades de servicio', 'error');
       }
     }
 
     // Agregar marcador de daño
     function addDamageMarker(damage) {
-      console.log('📍 Creando marcador para:', damage.title);
+      console.log('📍 ===== CREANDO MARCADOR =====');
+      console.log('📍 Título:', damage.title);
       console.log('📍 Coordenadas:', { lat: damage.lat, lng: damage.lng });
       console.log('📍 Mapa disponible:', !!map);
+      console.log('📍 Leaflet disponible:', typeof L !== 'undefined');
       
       if (!map) {
         console.error('❌ No hay mapa disponible para agregar marcador');
         return;
       }
       
-      const marker = L.marker([damage.lat, damage.lng], {
-        icon: L.divIcon({
-          className: 'damage-marker',
-          html: `<div style="background: ${damage.severity === 'high' ? '#ea4335' : damage.severity === 'medium' ? '#f9ab00' : '#4285f4'}; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; border: 3px solid white; box-shadow: 0 3px 12px rgba(0,0,0,0.4);">⚠️</div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 20]
-        })
-      });
-
-      const popupContent = `
-        <div style="min-width: 200px;">
-          <img src="${damage.image}" alt="${damage.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;">
-          <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px;">${damage.title}</div>
-          <div style="color: #5f6368; font-size: 14px; margin-bottom: 8px;">${damage.description}</div>
-        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
-          <div style="color: #856404; font-size: 12px; font-weight: 600; margin-bottom: 2px;">⚠️ Daño Detectado</div>
-          <div style="color: #856404; font-size: 11px;">Supervisor ha reportado este daño con calificación R (Regular)</div>
-        </div>
-        <div style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
-          <div style="color: #1976d2; font-size: 12px; font-weight: 600; margin-bottom: 2px;">📍 Ubicación</div>
-          <div style="color: #1976d2; font-size: 11px;">${damage.damageData?.unidadNombre || 'Unidad Residencial'}</div>
-        </div>
-          <button onclick="showBidModal('${damage.id}')" style="background: #1a73e8; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">Enviar Propuesta</button>
-        </div>
-      `;
-
-      marker.bindPopup(popupContent);
-      marker.addTo(map);
+      if (typeof L === 'undefined') {
+        console.error('❌ Leaflet no está disponible');
+        return;
+      }
       
-      damageMarkers.push({
-        marker: marker,
-        data: damage
-      });
+      // Validar coordenadas
+      if (isNaN(damage.lat) || isNaN(damage.lng)) {
+        console.error('❌ Coordenadas inválidas:', { lat: damage.lat, lng: damage.lng });
+        return;
+      }
       
-      console.log('✅ Marcador agregado exitosamente. Total damageMarkers:', damageMarkers.length);
-      console.log('✅ Marcador visible en mapa:', marker.isPopupOpen());
-      console.log('✅ Marcador lat/lng:', marker.getLatLng());
+      try {
+        console.log('📍 Creando marcador Leaflet...');
+        const marker = L.marker([damage.lat, damage.lng], {
+          icon: L.divIcon({
+            className: 'damage-marker',
+            html: `<div style="background: ${damage.severity === 'high' ? '#ea4335' : damage.severity === 'medium' ? '#f9ab00' : '#4285f4'}; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; border: 3px solid white; box-shadow: 0 3px 12px rgba(0,0,0,0.4);">⚠️</div>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+          })
+        });
+        
+        console.log('📍 Marcador Leaflet creado:', marker);
+        
+        const popupContent = `
+          <div style="min-width: 200px;">
+            <img src="${damage.image}" alt="${damage.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" onerror="this.src='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='">
+            <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px;">${damage.title}</div>
+            <div style="color: #5f6368; font-size: 14px; margin-bottom: 8px;">${damage.description}</div>
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
+              <div style="color: #856404; font-size: 12px; font-weight: 600; margin-bottom: 2px;">⚠️ Daño Detectado</div>
+              <div style="color: #856404; font-size: 11px;">Supervisor ha reportado este daño con calificación R (Regular)</div>
+            </div>
+            <div style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
+              <div style="color: #1976d2; font-size: 12px; font-weight: 600; margin-bottom: 2px;">📍 Ubicación</div>
+              <div style="color: #1976d2; font-size: 11px;">${damage.damageData?.unidadNombre || 'Unidad Residencial'}</div>
+            </div>
+            <button onclick="showBidModal('${damage.id}')" style="background: #1a73e8; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">Enviar Propuesta</button>
+          </div>
+        `;
+
+        console.log('📍 Contenido del popup creado');
+        marker.bindPopup(popupContent);
+        
+        console.log('📍 Agregando marcador al mapa...');
+        marker.addTo(map);
+        
+        console.log('📍 Marcador agregado al mapa exitosamente');
+        
+        damageMarkers.push({
+          marker: marker,
+          data: damage
+        });
+        
+        console.log('✅ ===== MARCADOR COMPLETADO =====');
+        console.log('✅ Marcador agregado exitosamente. Total damageMarkers:', damageMarkers.length);
+        console.log('✅ Marcador lat/lng:', marker.getLatLng());
+        console.log('✅ Marcador en el mapa:', map.hasLayer(marker));
+        
+        // Verificar que el marcador sea visible
+        setTimeout(() => {
+          console.log('🔍 Verificación del marcador después de 1 segundo:');
+          console.log('🔍 Marcador en el mapa:', map.hasLayer(marker));
+          console.log('🔍 Posición del marcador:', marker.getLatLng());
+          console.log('🔍 Bounds del mapa:', map.getBounds());
+        }, 1000);
+        
+      } catch (error) {
+        console.error('❌ Error creando marcador:', error);
+        console.error('❌ Error stack:', error.stack);
+      }
     }
+
+    // Función de diagnóstico del sistema
+    function debugSystem() {
+      console.log('🔍 ===== DIAGNÓSTICO DEL SISTEMA =====');
+      console.log('🔍 Mapa disponible:', !!map);
+      console.log('🔍 Leaflet disponible:', typeof L !== 'undefined');
+      console.log('🔍 Usuario autenticado:', !!currentUser);
+      console.log('🔍 Email del usuario:', getUserEmail());
+      console.log('🔍 Perfil del usuario:', userProfile);
+      console.log('🔍 Marcadores actuales:', damageMarkers.length);
+      console.log('🔍 Ubicación del usuario:', userLocation);
+      
+      if (map) {
+        console.log('🔍 Centro del mapa:', map.getCenter());
+        console.log('🔍 Zoom del mapa:', map.getZoom());
+        console.log('🔍 Bounds del mapa:', map.getBounds());
+        console.log('🔍 Capas en el mapa:', Object.keys(map._layers).length);
+      }
+      
+      console.log('🔍 API Base URL:', API_BASE_URL);
+      console.log('🔍 Socket disponible:', !!socket);
+      
+      // Probar carga de daños
+      console.log('🔍 Probando carga de daños...');
+      loadDamagesNearby().then(damages => {
+        console.log('🔍 Daños cargados en diagnóstico:', damages.length);
+        console.log('🔍 Datos de daños:', damages);
+      }).catch(error => {
+        console.error('🔍 Error cargando daños en diagnóstico:', error);
+      });
+      
+      console.log('🔍 ===== FIN DIAGNÓSTICO =====');
+    }
+    
+    // Hacer la función disponible globalmente
+    window.debugSystem = debugSystem;
 
     // Conectar Socket.IO
     function connectSocket() {
