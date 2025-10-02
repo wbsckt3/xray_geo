@@ -997,39 +997,74 @@
 
     // Inicializar mapa
     async function initializeMap() {
+      console.log('🗺️ ===== INICIALIZANDO MAPA =====');
+      console.log('🗺️ Leaflet disponible:', typeof L !== 'undefined');
+      console.log('🗺️ Elemento map existe:', !!document.getElementById('map'));
+      
+      if (typeof L === 'undefined') {
+        console.error('❌ Leaflet no está disponible');
+        return;
+      }
+      
+      if (!document.getElementById('map')) {
+        console.error('❌ Elemento #map no existe');
+        return;
+      }
+      
       // Esperar un poco para que el contenedor esté completamente renderizado
       setTimeout(() => {
-        // Crear mapa centrado en Medellín - Estación Industriales del Metro
-        map = L.map('map', {
-          zoomControl: true,
-          attributionControl: true
-        }).setView([6.2442, -75.5812], 15);
-        
-        // Agregar capa de OpenStreetMap
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 19
-        }).addTo(map);
-        
-        // Forzar redimensionamiento del mapa
-        setTimeout(() => {
-          map.invalidateSize();
-        }, 100);
-        
-        // Agregar marcadores de ejemplo (daños) después de que el mapa esté listo
-        setTimeout(() => {
-          addSampleDamageMarkers().catch(error => {
-            console.error('Error cargando daños:', error);
-          });
-        }, 2000);
-        
-        // Redimensionar mapa cuando cambie el tamaño de la ventana
-        window.addEventListener('resize', () => {
+        try {
+          console.log('🗺️ Creando mapa Leaflet...');
+          
+          // Crear mapa centrado en Medellín - Estación Industriales del Metro
+          map = L.map('map', {
+            zoomControl: true,
+            attributionControl: true
+          }).setView([6.2442, -75.5812], 15);
+          
+          console.log('🗺️ Mapa creado:', map);
+          console.log('🗺️ Centro del mapa:', map.getCenter());
+          console.log('🗺️ Zoom del mapa:', map.getZoom());
+          
+          // Agregar capa de OpenStreetMap
+          console.log('🗺️ Agregando capa de tiles...');
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+          }).addTo(map);
+          
+          console.log('🗺️ Capa de tiles agregada');
+          
+          // Forzar redimensionamiento del mapa
           setTimeout(() => {
+            console.log('🗺️ Redimensionando mapa...');
             map.invalidateSize();
+            console.log('🗺️ Mapa redimensionado');
           }, 100);
-        });
-        
+          
+          // Agregar marcadores de ejemplo (daños) después de que el mapa esté listo
+          setTimeout(() => {
+            console.log('🗺️ Cargando marcadores de daños...');
+            addSampleDamageMarkers().catch(error => {
+              console.error('Error cargando daños:', error);
+            });
+          }, 2000);
+          
+          // Redimensionar mapa cuando cambie el tamaño de la ventana
+          window.addEventListener('resize', () => {
+            setTimeout(() => {
+              if (map) {
+                map.invalidateSize();
+              }
+            }, 100);
+          });
+          
+          console.log('✅ ===== MAPA INICIALIZADO EXITOSAMENTE =====');
+          
+        } catch (error) {
+          console.error('❌ Error inicializando mapa:', error);
+          console.error('❌ Error stack:', error.stack);
+        }
       }, 200);
     }
 
@@ -1537,6 +1572,102 @@
       }
     }
 
+    // Función para forzar inicialización del mapa
+    function forceInitializeMap() {
+      console.log('🔧 ===== FORZANDO INICIALIZACIÓN DEL MAPA =====');
+      
+      if (map) {
+        console.log('⚠️ El mapa ya está inicializado');
+        return;
+      }
+      
+      if (typeof L === 'undefined') {
+        console.error('❌ Leaflet no está disponible');
+        return;
+      }
+      
+      if (!document.getElementById('map')) {
+        console.error('❌ Elemento #map no existe');
+        return;
+      }
+      
+      try {
+        console.log('🔧 Creando mapa Leaflet...');
+        
+        // Crear mapa centrado en Medellín
+        map = L.map('map', {
+          zoomControl: true,
+          attributionControl: true
+        }).setView([6.2442, -75.5812], 15);
+        
+        console.log('🔧 Mapa creado:', map);
+        
+        // Agregar capa de OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          maxZoom: 19
+        }).addTo(map);
+        
+        console.log('🔧 Capa de tiles agregada');
+        
+        // Redimensionar mapa
+        setTimeout(() => {
+          map.invalidateSize();
+          console.log('🔧 Mapa redimensionado');
+          
+          // Cargar marcadores después de que el mapa esté listo
+          setTimeout(() => {
+            console.log('🔧 Cargando marcadores...');
+            addSampleDamageMarkers();
+          }, 1000);
+        }, 100);
+        
+        console.log('✅ ===== MAPA INICIALIZADO FORZADAMENTE =====');
+        
+      } catch (error) {
+        console.error('❌ Error forzando inicialización del mapa:', error);
+      }
+    }
+
+    // Función para verificar estado de autenticación
+    function debugAuth() {
+      console.log('🔐 ===== DIAGNÓSTICO DE AUTENTICACIÓN =====');
+      
+      const token = localStorage.getItem('refactorii_token');
+      const userData = localStorage.getItem('user_data');
+      const tokenExpiry = localStorage.getItem('token_expiry');
+      const savedProfile = localStorage.getItem('user_profile');
+      
+      console.log('🔐 Token existe:', !!token);
+      console.log('🔐 Token (primeros 50 chars):', token ? token.substring(0, 50) + '...' : 'null');
+      console.log('🔐 User data existe:', !!userData);
+      console.log('🔐 User data:', userData);
+      console.log('🔐 Token expiry existe:', !!tokenExpiry);
+      console.log('🔐 Token expiry:', tokenExpiry);
+      console.log('🔐 Token expirado:', tokenExpiry ? Date.now() > parseInt(tokenExpiry) : 'N/A');
+      console.log('🔐 Perfil guardado:', savedProfile);
+      
+      console.log('🔐 currentUser:', currentUser);
+      console.log('🔐 userProfile:', userProfile);
+      console.log('🔐 getUserEmail():', getUserEmail());
+      
+      // Verificar si el token es válido
+      if (token && userData && tokenExpiry) {
+        const isExpired = Date.now() > parseInt(tokenExpiry);
+        console.log('🔐 Token válido:', !isExpired);
+        
+        if (isExpired) {
+          console.log('⚠️ Token expirado - necesita reautenticación');
+        } else {
+          console.log('✅ Token válido - usuario autenticado');
+        }
+      } else {
+        console.log('❌ Datos de autenticación incompletos');
+      }
+      
+      console.log('🔐 ===== FIN DIAGNÓSTICO DE AUTENTICACIÓN =====');
+    }
+
     // Función de diagnóstico del sistema
     function debugSystem() {
       console.log('🔍 ===== DIAGNÓSTICO DEL SISTEMA =====');
@@ -1558,6 +1689,9 @@
       console.log('🔍 API Base URL:', API_BASE_URL);
       console.log('🔍 Socket disponible:', !!socket);
       
+      // Diagnóstico de autenticación
+      debugAuth();
+      
       // Probar carga de daños
       console.log('🔍 Probando carga de daños...');
       loadDamagesNearby().then(damages => {
@@ -1570,8 +1704,10 @@
       console.log('🔍 ===== FIN DIAGNÓSTICO =====');
     }
     
-    // Hacer la función disponible globalmente
+    // Hacer las funciones disponibles globalmente
     window.debugSystem = debugSystem;
+    window.debugAuth = debugAuth;
+    window.forceInitializeMap = forceInitializeMap;
 
     // Conectar Socket.IO
     function connectSocket() {
