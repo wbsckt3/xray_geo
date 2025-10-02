@@ -1356,7 +1356,7 @@
       showNotification('Foto eliminada', 'info');
     }
 
-    // Agregar marcadores de daños reales
+    // Agregar marcadores según el perfil del usuario
     async function addSampleDamageMarkers() {
       try {
         console.log('📍 ===== INICIANDO addSampleDamageMarkers =====');
@@ -1382,42 +1382,65 @@
           return;
         }
         
-        // Cargar daños reales desde la API usando las mismas coordenadas que showRequestsView
-        console.log('📍 Cargando daños con coordenadas por defecto (Medellín)...');
-        console.log('📍 Usuario autenticado:', getUserEmail());
-        console.log('📍 Llamando a loadDamagesNearby()...');
+        // Limpiar marcadores existentes
+        console.log('🧹 Limpiando marcadores existentes...');
+        damageMarkers.forEach(marker => {
+          if (marker.marker) {
+            map.removeLayer(marker.marker);
+          }
+        });
+        damageMarkers = [];
+        console.log('🧹 Marcadores limpiados. damageMarkers.length:', damageMarkers.length);
         
-        const realDamages = await loadDamagesNearby();
-        console.log('📍 ===== RESULTADO DE loadDamagesNearby =====');
-        console.log('📍 Daños obtenidos de la API:', realDamages.length);
-        console.log('📍 Tipo de datos:', typeof realDamages);
-        console.log('📍 Es array:', Array.isArray(realDamages));
-        console.log('📍 Datos completos de la API:', realDamages);
+        // Comportamiento diferente según el perfil
+        if (userProfile === 'client') {
+          console.log('🏢 PERFIL EMPRESA: Cargando solicitudes propias...');
+          await loadClientRequestsForMap();
+        } else if (userProfile === 'technician') {
+          console.log('👨‍🔧 PERFIL TÉCNICO: Cargando oportunidades cercanas...');
+          await loadNearbyOpportunitiesForMap();
+        } else {
+          console.log('⚠️ Perfil no reconocido:', userProfile);
+          return;
+        }
         
-        if (realDamages && Array.isArray(realDamages) && realDamages.length > 0) {
-          console.log('✅ Cargando daños reales desde la API:', realDamages.length);
-          
-          // Limpiar marcadores existentes
-          console.log('🧹 Limpiando marcadores existentes...');
-          damageMarkers.forEach(marker => {
-            if (marker.marker) {
-              map.removeLayer(marker.marker);
-            }
-          });
-          damageMarkers = [];
-          console.log('🧹 Marcadores limpiados. damageMarkers.length:', damageMarkers.length);
-          
-          realDamages.forEach((damage, index) => {
-            console.log(`🔍 ===== PROCESANDO DAÑO ${index + 1} =====`);
-            console.log(`🔍 Daño completo:`, damage);
+      } catch (error) {
+        console.error('❌ ===== ERROR EN addSampleDamageMarkers =====');
+        console.error('❌ Error cargando marcadores:', error);
+        console.error('❌ Error stack:', error.stack);
+        console.error('❌ Error name:', error.name);
+        console.error('❌ Error message:', error.message);
+        showNotification('Error cargando marcadores', 'error');
+      }
+    }
+    
+    // Cargar solicitudes propias para empresas
+    async function loadClientRequestsForMap() {
+      try {
+        console.log('🏢 Cargando solicitudes propias del cliente...');
+        
+        // Cargar todos los daños y filtrar por el email del cliente
+        const allDamages = await loadDamagesNearby();
+        
+        // Filtrar damages que fueron creados por este cliente
+        const clientRequests = allDamages.filter(damage => {
+          return damage.description && damage.description.includes(getUserEmail());
+        });
+        
+        console.log('🏢 Solicitudes propias encontradas:', clientRequests.length);
+        
+        if (clientRequests.length > 0) {
+          clientRequests.forEach((damage, index) => {
+            console.log(`🔍 ===== PROCESANDO SOLICITUD PROPIA ${index + 1} =====`);
+            console.log(`🔍 Solicitud completa:`, damage);
             
             // Verificar que el daño tenga la estructura esperada
             if (!damage || !damage.location) {
-              console.warn(`⚠️ Daño ${index + 1} no tiene estructura válida:`, damage);
+              console.warn(`⚠️ Solicitud ${index + 1} no tiene estructura válida:`, damage);
               return;
             }
             
-            // Manejar coordenadas que pueden estar como objetos $numberDouble
+            // Manejar coordenadas
             const lat = typeof damage.location.latitude === 'object' 
               ? damage.location.latitude.$numberDouble || damage.location.latitude
               : damage.location.latitude;
@@ -1425,13 +1448,72 @@
               ? damage.location.longitude.$numberDouble || damage.location.longitude
               : damage.location.longitude;
             
-            console.log(`📍 Coordenadas del daño ${index + 1}:`, { lat, lng });
-            console.log(`📍 Tipo de lat:`, typeof lat, 'Valor:', lat);
-            console.log(`📍 Tipo de lng:`, typeof lng, 'Valor:', lng);
+            // Validar coordenadas
+            if (isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
+              console.warn(`⚠️ Coordenadas inválidas para solicitud ${index + 1}:`, { lat, lng });
+              return;
+            }
+            
+            const damageData = {
+              id: damage._id,
+              lat: parseFloat(lat),
+              lng: parseFloat(lng),
+              title: `${damage.item || 'Sin título'} - ${damage.area || 'Sin área'}`,
+              description: damage.description || 'Sin descripción',
+              image: damage.image || 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=',
+              severity: damage.severity || 'medium',
+              category: damage.area || 'general',
+              timestamp: new Date(damage.createdAt || Date.now()).toISOString(),
+              damageData: damage,
+              isClientRequest: true // Marcar como solicitud propia
+            };
+            
+            console.log(`📍 Agregando solicitud propia ${index + 1} al mapa...`);
+            addDamageMarker(damageData);
+          });
+          
+          showNotification(`Se cargaron ${clientRequests.length} de tus solicitudes`, 'success');
+        } else {
+          console.log('🏢 No tienes solicitudes creadas aún');
+          showNotification('No tienes solicitudes de servicio creadas', 'info');
+        }
+        
+      } catch (error) {
+        console.error('❌ Error cargando solicitudes propias:', error);
+        showNotification('Error cargando tus solicitudes', 'error');
+      }
+    }
+    
+    // Cargar oportunidades cercanas para técnicos
+    async function loadNearbyOpportunitiesForMap() {
+      try {
+        console.log('👨‍🔧 Cargando oportunidades cercanas para técnico...');
+        
+        const realDamages = await loadDamagesNearby();
+        console.log('👨‍🔧 Oportunidades encontradas:', realDamages.length);
+        
+        if (realDamages && Array.isArray(realDamages) && realDamages.length > 0) {
+          realDamages.forEach((damage, index) => {
+            console.log(`🔍 ===== PROCESANDO OPORTUNIDAD ${index + 1} =====`);
+            console.log(`🔍 Oportunidad completa:`, damage);
+            
+            // Verificar que el daño tenga la estructura esperada
+            if (!damage || !damage.location) {
+              console.warn(`⚠️ Oportunidad ${index + 1} no tiene estructura válida:`, damage);
+              return;
+            }
+            
+            // Manejar coordenadas
+            const lat = typeof damage.location.latitude === 'object' 
+              ? damage.location.latitude.$numberDouble || damage.location.latitude
+              : damage.location.latitude;
+            const lng = typeof damage.location.longitude === 'object' 
+              ? damage.location.longitude.$numberDouble || damage.location.longitude
+              : damage.location.longitude;
             
             // Validar coordenadas
             if (isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
-              console.warn(`⚠️ Coordenadas inválidas para daño ${index + 1}:`, { lat, lng });
+              console.warn(`⚠️ Coordenadas inválidas para oportunidad ${index + 1}:`, { lat, lng });
               return;
             }
             
@@ -1445,43 +1527,22 @@
               severity: damage.severity || 'medium',
               category: damage.area || 'general',
               timestamp: new Date(damage.createdAt || Date.now()).toISOString(),
-              damageData: damage
+              damageData: damage,
+              isClientRequest: false // Marcar como oportunidad externa
             };
             
-            console.log(`📍 Datos del marcador ${index + 1}:`, damageData);
-            console.log(`📍 Agregando marcador ${index + 1} al mapa...`);
-            
-            try {
-              addDamageMarker(damageData);
-              console.log(`✅ Marcador ${index + 1} agregado exitosamente`);
-            } catch (markerError) {
-              console.error(`❌ Error agregando marcador ${index + 1}:`, markerError);
-            }
+            console.log(`📍 Agregando oportunidad ${index + 1} al mapa...`);
+            addDamageMarker(damageData);
           });
           
-          console.log('✅ ===== FINALIZANDO addSampleDamageMarkers =====');
-          console.log('✅ Marcadores agregados. Total damageMarkers:', damageMarkers.length);
-          console.log('✅ Marcadores en el mapa:', map._layers);
-          
-          // Mostrar notificación de éxito
-          if (damageMarkers.length > 0) {
-            showNotification(`Se cargaron ${damageMarkers.length} oportunidades de servicio`, 'success');
-          }
+          showNotification(`Se cargaron ${realDamages.length} oportunidades de servicio`, 'success');
         } else {
-          console.log('⚠️ No se encontraron daños reales en la base de datos');
-          console.log('⚠️ realDamages:', realDamages);
-          console.log('⚠️ Es array:', Array.isArray(realDamages));
-          console.log('⚠️ Length:', realDamages ? realDamages.length : 'undefined');
-          
-          // Mostrar notificación informativa
+          console.log('👨‍🔧 No hay oportunidades de servicio en tu área');
           showNotification('No hay oportunidades de servicio en tu área', 'info');
         }
+        
       } catch (error) {
-        console.error('❌ ===== ERROR EN addSampleDamageMarkers =====');
-        console.error('❌ Error cargando daños reales:', error);
-        console.error('❌ Error stack:', error.stack);
-        console.error('❌ Error name:', error.name);
-        console.error('❌ Error message:', error.message);
+        console.error('❌ Error cargando oportunidades cercanas:', error);
         showNotification('Error cargando oportunidades de servicio', 'error');
       }
     }
@@ -1523,22 +1584,46 @@
         
         console.log('📍 Marcador Leaflet creado:', marker);
         
-        const popupContent = `
-          <div style="min-width: 200px;">
-            <img src="${damage.image}" alt="${damage.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" onerror="this.src='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='">
-            <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px;">${damage.title}</div>
-            <div style="color: #5f6368; font-size: 14px; margin-bottom: 8px;">${damage.description}</div>
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
-              <div style="color: #856404; font-size: 12px; font-weight: 600; margin-bottom: 2px;">⚠️ Daño Detectado</div>
-              <div style="color: #856404; font-size: 11px;">Supervisor ha reportado este daño con calificación R (Regular)</div>
+        // Crear popup diferente según el perfil
+        let popupContent;
+        
+        if (damage.isClientRequest) {
+          // Popup para solicitudes propias (empresas)
+          popupContent = `
+            <div style="min-width: 200px;">
+              <img src="${damage.image}" alt="${damage.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" onerror="this.src='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='">
+              <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px;">${damage.title}</div>
+              <div style="color: #5f6368; font-size: 14px; margin-bottom: 8px;">${damage.description}</div>
+              <div style="background: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
+                <div style="color: #2e7d32; font-size: 12px; font-weight: 600; margin-bottom: 2px;">🏢 Tu Solicitud</div>
+                <div style="color: #2e7d32; font-size: 11px;">Esta es una solicitud de servicio que has creado</div>
+              </div>
+              <div style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
+                <div style="color: #1976d2; font-size: 12px; font-weight: 600; margin-bottom: 2px;">📍 Estado</div>
+                <div style="color: #1976d2; font-size: 11px;">Esperando propuestas de técnicos</div>
+              </div>
+              <button onclick="showRequestsView()" style="background: #4caf50; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">Ver Propuestas</button>
             </div>
-            <div style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
-              <div style="color: #1976d2; font-size: 12px; font-weight: 600; margin-bottom: 2px;">📍 Ubicación</div>
-              <div style="color: #1976d2; font-size: 11px;">${damage.damageData?.unidadNombre || 'Unidad Residencial'}</div>
+          `;
+        } else {
+          // Popup para oportunidades externas (técnicos)
+          popupContent = `
+            <div style="min-width: 200px;">
+              <img src="${damage.image}" alt="${damage.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" onerror="this.src='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='">
+              <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px;">${damage.title}</div>
+              <div style="color: #5f6368; font-size: 14px; margin-bottom: 8px;">${damage.description}</div>
+              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
+                <div style="color: #856404; font-size: 12px; font-weight: 600; margin-bottom: 2px;">⚠️ Oportunidad de Servicio</div>
+                <div style="color: #856404; font-size: 11px;">Empresa solicita servicio técnico especializado</div>
+              </div>
+              <div style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
+                <div style="color: #1976d2; font-size: 12px; font-weight: 600; margin-bottom: 2px;">📍 Ubicación</div>
+                <div style="color: #1976d2; font-size: 11px;">${damage.damageData?.unidadNombre || 'Unidad Residencial'}</div>
+              </div>
+              <button onclick="showBidModal('${damage.id}')" style="background: #1a73e8; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">Enviar Propuesta</button>
             </div>
-            <button onclick="showBidModal('${damage.id}')" style="background: #1a73e8; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">Enviar Propuesta</button>
-          </div>
-        `;
+          `;
+        }
 
         console.log('📍 Contenido del popup creado');
         marker.bindPopup(popupContent);
