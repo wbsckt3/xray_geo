@@ -1360,18 +1360,18 @@
     async function loadAndShowMarkers() {
       try {
         console.log('📍 ===== CARGANDO MARCADORES =====');
-        console.log('📍 Mapa:', !!map, 'Usuario:', !!currentUser, 'Perfil:', userProfile);
+        console.log('📍 Mapa:', !!window.map, 'Usuario:', !!window.currentUser, 'Perfil:', window.userProfile);
         console.log('📍 API Base URL:', API_BASE_URL);
         console.log('📍 Email usuario:', getUserEmail());
         
         // Verificaciones básicas
-        if (!map) {
+        if (!window.map) {
           console.log('⚠️ Mapa no disponible');
           showNotification('Mapa no disponible', 'error');
           return;
         }
         
-        if (!currentUser || !getUserEmail()) {
+        if (!window.currentUser || !getUserEmail()) {
           console.log('⚠️ Usuario no autenticado');
           showNotification('Usuario no autenticado', 'error');
           return;
@@ -1381,7 +1381,7 @@
         console.log('🧹 Limpiando marcadores existentes...');
           damageMarkers.forEach(marker => {
             if (marker.marker) {
-              map.removeLayer(marker.marker);
+              window.map.removeLayer(marker.marker);
             }
           });
           damageMarkers = [];
@@ -1390,7 +1390,7 @@
         // Cargar datos según perfil
         let damages = [];
         
-        if (userProfile === 'client') {
+        if (window.userProfile === 'client') {
           console.log('🏢 PERFIL EMPRESA: Cargando solicitudes propias...');
           const allDamages = await loadDamagesNearby();
           console.log('🏢 Total de daños encontrados:', allDamages.length);
@@ -1412,7 +1412,7 @@
           });
           console.log('🏢 Solicitudes propias encontradas:', damages.length);
           
-        } else if (userProfile === 'technician') {
+        } else if (window.userProfile === 'technician') {
           console.log('👨‍🔧 PERFIL TÉCNICO: Cargando oportunidades cercanas...');
           damages = await loadDamagesNearby();
           console.log('👨‍🔧 Oportunidades encontradas:', damages.length);
@@ -1427,7 +1427,7 @@
             });
           });
         } else {
-          console.log('⚠️ Perfil no reconocido:', userProfile);
+          console.log('⚠️ Perfil no reconocido:', window.userProfile);
           showNotification('Perfil no reconocido', 'error');
           return;
         }
@@ -1440,7 +1440,7 @@
           
           damages.forEach((damage, index) => {
             try {
-              const isClientRequest = userProfile === 'client';
+              const isClientRequest = window.userProfile === 'client';
               console.log(`📍 Procesando marcador ${index + 1}/${damages.length}:`, {
               id: damage._id,
                 title: damage.item,
@@ -1458,12 +1458,12 @@
           
           console.log(`✅ Marcadores creados: ${successCount} exitosos, ${errorCount} errores`);
           
-          const message = userProfile === 'client' 
+          const message = window.userProfile === 'client' 
             ? `Se cargaron ${successCount} de tus solicitudes`
             : `Se cargaron ${successCount} oportunidades de servicio`;
           showNotification(message, 'success');
         } else {
-          const message = userProfile === 'client'
+          const message = window.userProfile === 'client'
             ? 'No tienes solicitudes de servicio creadas'
             : 'No hay oportunidades de servicio en tu área';
           console.log('ℹ️', message);
