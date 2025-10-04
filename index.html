@@ -1016,49 +1016,49 @@
         try {
           console.log('🗺️ Creando mapa Leaflet...');
           
-          // Crear mapa centrado en Medellín - Estación Industriales del Metro
-          map = L.map('map', {
-            zoomControl: true,
-            attributionControl: true
-          }).setView([6.2442, -75.5812], 15);
+        // Crear mapa centrado en Medellín - Estación Industriales del Metro
+        map = L.map('map', {
+          zoomControl: true,
+          attributionControl: true
+        }).setView([6.2442, -75.5812], 15);
           
           console.log('🗺️ Mapa creado:', map);
           console.log('🗺️ Centro del mapa:', map.getCenter());
           console.log('🗺️ Zoom del mapa:', map.getZoom());
-          
-          // Agregar capa de OpenStreetMap
+        
+        // Agregar capa de OpenStreetMap
           console.log('🗺️ Agregando capa de tiles...');
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 19
-          }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          maxZoom: 19
+        }).addTo(map);
           
           console.log('🗺️ Capa de tiles agregada');
-          
-          // Forzar redimensionamiento del mapa
-          setTimeout(() => {
+        
+        // Forzar redimensionamiento del mapa
+        setTimeout(() => {
             console.log('🗺️ Redimensionando mapa...');
-            map.invalidateSize();
+          map.invalidateSize();
             console.log('🗺️ Mapa redimensionado');
-          }, 100);
-          
-          // Agregar marcadores de ejemplo (daños) después de que el mapa esté listo
-          setTimeout(() => {
+        }, 100);
+        
+        // Agregar marcadores de ejemplo (daños) después de que el mapa esté listo
+        setTimeout(() => {
             console.log('🗺️ Cargando marcadores de daños...');
             loadAndShowMarkers().catch(error => {
-              console.error('Error cargando daños:', error);
-            });
-          }, 2000);
-          
-          // Redimensionar mapa cuando cambie el tamaño de la ventana
-          window.addEventListener('resize', () => {
-            setTimeout(() => {
-              if (map) {
-                map.invalidateSize();
-              }
-            }, 100);
+            console.error('Error cargando daños:', error);
           });
-          
+        }, 2000);
+        
+        // Redimensionar mapa cuando cambie el tamaño de la ventana
+        window.addEventListener('resize', () => {
+          setTimeout(() => {
+              if (map) {
+            map.invalidateSize();
+              }
+          }, 100);
+        });
+        
           console.log('✅ ===== MAPA INICIALIZADO EXITOSAMENTE =====');
           
         } catch (error) {
@@ -1361,63 +1361,121 @@
       try {
         console.log('📍 ===== CARGANDO MARCADORES =====');
         console.log('📍 Mapa:', !!map, 'Usuario:', !!currentUser, 'Perfil:', userProfile);
+        console.log('📍 API Base URL:', API_BASE_URL);
+        console.log('📍 Email usuario:', getUserEmail());
         
         // Verificaciones básicas
         if (!map) {
           console.log('⚠️ Mapa no disponible');
+          showNotification('Mapa no disponible', 'error');
           return;
         }
         
         if (!currentUser || !getUserEmail()) {
           console.log('⚠️ Usuario no autenticado');
+          showNotification('Usuario no autenticado', 'error');
           return;
         }
-        
-        // Limpiar marcadores existentes
-        damageMarkers.forEach(marker => {
-          if (marker.marker) {
-            map.removeLayer(marker.marker);
-          }
-        });
-        damageMarkers = [];
+          
+          // Limpiar marcadores existentes
+        console.log('🧹 Limpiando marcadores existentes...');
+          damageMarkers.forEach(marker => {
+            if (marker.marker) {
+              map.removeLayer(marker.marker);
+            }
+          });
+          damageMarkers = [];
+        console.log('🧹 Marcadores limpiados');
         
         // Cargar datos según perfil
         let damages = [];
         
         if (userProfile === 'client') {
-          console.log('🏢 Cargando solicitudes propias...');
+          console.log('🏢 PERFIL EMPRESA: Cargando solicitudes propias...');
           const allDamages = await loadDamagesNearby();
-          damages = allDamages.filter(damage => 
-            damage.description && damage.description.includes(getUserEmail())
-          );
+          console.log('🏢 Total de daños encontrados:', allDamages.length);
+          
+          // Mostrar todos los daños para debugging
+          allDamages.forEach((damage, index) => {
+            console.log(`🏢 Daño ${index + 1}:`, {
+              id: damage._id,
+              description: damage.description,
+              hasEmail: damage.description && damage.description.includes(getUserEmail()),
+              userEmail: getUserEmail()
+            });
+          });
+          
+          damages = allDamages.filter(damage => {
+            const hasEmail = damage.description && damage.description.includes(getUserEmail());
+            console.log(`🏢 Daño ${damage._id}: ${hasEmail ? 'ES PROPIO' : 'NO ES PROPIO'}`);
+            return hasEmail;
+          });
           console.log('🏢 Solicitudes propias encontradas:', damages.length);
           
         } else if (userProfile === 'technician') {
-          console.log('👨‍🔧 Cargando oportunidades cercanas...');
+          console.log('👨‍🔧 PERFIL TÉCNICO: Cargando oportunidades cercanas...');
           damages = await loadDamagesNearby();
           console.log('👨‍🔧 Oportunidades encontradas:', damages.length);
+          
+          // Mostrar todas las oportunidades para debugging
+          damages.forEach((damage, index) => {
+            console.log(`👨‍🔧 Oportunidad ${index + 1}:`, {
+              id: damage._id,
+              item: damage.item,
+              area: damage.area,
+              hasLocation: !!damage.location
+            });
+          });
+        } else {
+          console.log('⚠️ Perfil no reconocido:', userProfile);
+          showNotification('Perfil no reconocido', 'error');
+          return;
         }
         
         // Mostrar marcadores
         if (damages && damages.length > 0) {
-          damages.forEach(damage => {
-            const isClientRequest = userProfile === 'client';
-            addDamageMarker(damage, isClientRequest);
+          console.log('📍 Creando marcadores...');
+          let successCount = 0;
+          let errorCount = 0;
+          
+          damages.forEach((damage, index) => {
+            try {
+              const isClientRequest = userProfile === 'client';
+              console.log(`📍 Procesando marcador ${index + 1}/${damages.length}:`, {
+              id: damage._id,
+                title: damage.item,
+                hasLocation: !!damage.location,
+                isClientRequest
+              });
+              
+              addDamageMarker(damage, isClientRequest);
+              successCount++;
+            } catch (error) {
+              console.error(`❌ Error creando marcador ${index + 1}:`, error);
+              errorCount++;
+            }
           });
           
+          console.log(`✅ Marcadores creados: ${successCount} exitosos, ${errorCount} errores`);
+          
           const message = userProfile === 'client' 
-            ? `Se cargaron ${damages.length} de tus solicitudes`
-            : `Se cargaron ${damages.length} oportunidades de servicio`;
+            ? `Se cargaron ${successCount} de tus solicitudes`
+            : `Se cargaron ${successCount} oportunidades de servicio`;
           showNotification(message, 'success');
         } else {
           const message = userProfile === 'client'
             ? 'No tienes solicitudes de servicio creadas'
             : 'No hay oportunidades de servicio en tu área';
+          console.log('ℹ️', message);
           showNotification(message, 'info');
         }
         
+        console.log('✅ ===== CARGA DE MARCADORES COMPLETADA =====');
+        
       } catch (error) {
-        console.error('❌ Error cargando marcadores:', error);
+        console.error('❌ ===== ERROR EN CARGA DE MARCADORES =====');
+        console.error('❌ Error:', error);
+        console.error('❌ Stack:', error.stack);
         showNotification('Error cargando marcadores', 'error');
       }
     }
@@ -1471,14 +1529,14 @@
       try {
         console.log('📍 Creando marcador Leaflet...');
         const marker = L.marker([parseFloat(lat), parseFloat(lng)], {
-          icon: L.divIcon({
-            className: 'damage-marker',
-            html: `<div style="background: ${damage.severity === 'high' ? '#ea4335' : damage.severity === 'medium' ? '#f9ab00' : '#4285f4'}; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; border: 3px solid white; box-shadow: 0 3px 12px rgba(0,0,0,0.4);">⚠️</div>`,
-            iconSize: [40, 40],
-            iconAnchor: [20, 20]
-          })
-        });
-        
+        icon: L.divIcon({
+          className: 'damage-marker',
+          html: `<div style="background: ${damage.severity === 'high' ? '#ea4335' : damage.severity === 'medium' ? '#f9ab00' : '#4285f4'}; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; border: 3px solid white; box-shadow: 0 3px 12px rgba(0,0,0,0.4);">⚠️</div>`,
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
+        })
+      });
+
         console.log('📍 Marcador Leaflet creado:', marker);
         
         // Crear popup diferente según el perfil
@@ -1487,7 +1545,7 @@
         if (isClientRequest) {
           // Popup para solicitudes propias (empresas)
           popupContent = `
-            <div style="min-width: 200px;">
+        <div style="min-width: 200px;">
               <img src="${image}" alt="${title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" onerror="this.src='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='">
               <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px;">${title}</div>
               <div style="color: #5f6368; font-size: 14px; margin-bottom: 8px;">${description}</div>
@@ -1509,35 +1567,35 @@
               <img src="${image}" alt="${title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" onerror="this.src='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='">
               <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px;">${title}</div>
               <div style="color: #5f6368; font-size: 14px; margin-bottom: 8px;">${description}</div>
-              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
                 <div style="color: #856404; font-size: 12px; font-weight: 600; margin-bottom: 2px;">⚠️ Oportunidad de Servicio</div>
                 <div style="color: #856404; font-size: 11px;">Empresa solicita servicio técnico especializado</div>
-              </div>
-              <div style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
-                <div style="color: #1976d2; font-size: 12px; font-weight: 600; margin-bottom: 2px;">📍 Ubicación</div>
-                <div style="color: #1976d2; font-size: 11px;">${damage.damageData?.unidadNombre || 'Unidad Residencial'}</div>
-              </div>
+        </div>
+        <div style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
+          <div style="color: #1976d2; font-size: 12px; font-weight: 600; margin-bottom: 2px;">📍 Ubicación</div>
+          <div style="color: #1976d2; font-size: 11px;">${damage.damageData?.unidadNombre || 'Unidad Residencial'}</div>
+        </div>
               <button onclick="showBidModal('${damage._id || damage.id}')" style="background: #1a73e8; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">Enviar Propuesta</button>
-            </div>
-          `;
+        </div>
+      `;
         }
 
         console.log('📍 Contenido del popup creado');
-        marker.bindPopup(popupContent);
+      marker.bindPopup(popupContent);
         
         console.log('📍 Agregando marcador al mapa...');
-        marker.addTo(map);
+      marker.addTo(map);
         
         console.log('📍 Marcador agregado al mapa exitosamente');
-        
-        damageMarkers.push({
-          marker: marker,
-          data: damage
-        });
-        
+      
+      damageMarkers.push({
+        marker: marker,
+        data: damage
+      });
+      
         console.log('✅ ===== MARCADOR COMPLETADO =====');
-        console.log('✅ Marcador agregado exitosamente. Total damageMarkers:', damageMarkers.length);
-        console.log('✅ Marcador lat/lng:', marker.getLatLng());
+      console.log('✅ Marcador agregado exitosamente. Total damageMarkers:', damageMarkers.length);
+      console.log('✅ Marcador lat/lng:', marker.getLatLng());
         console.log('✅ Marcador en el mapa:', map.hasLayer(marker));
         
         // Verificar que el marcador sea visible
@@ -1726,11 +1784,514 @@
       }
     }
 
+    // Función para validar carga de oportunidades y propuestas
+    async function validateMapData() {
+      console.log('🔍 ===== VALIDANDO DATOS DEL MAPA =====');
+      
+      try {
+        // 1. Validar autenticación
+        console.log('🔐 Validando autenticación...');
+        if (!currentUser || !getUserEmail()) {
+          console.error('❌ Usuario no autenticado');
+          return false;
+        }
+        console.log('✅ Usuario autenticado:', getUserEmail());
+        
+        // 2. Validar perfil
+        console.log('👤 Validando perfil...');
+        if (!userProfile) {
+          console.error('❌ Perfil no seleccionado');
+          return false;
+        }
+        console.log('✅ Perfil:', userProfile);
+        
+        // 3. Validar mapa
+        console.log('🗺️ Validando mapa...');
+        if (!map) {
+          console.error('❌ Mapa no inicializado');
+          return false;
+        }
+        console.log('✅ Mapa disponible');
+        
+        // 4. Cargar oportunidades de servicio
+        console.log('📋 Cargando oportunidades de servicio...');
+        const opportunities = await loadDamagesNearby();
+        console.log('📊 Oportunidades encontradas:', opportunities.length);
+        
+        if (opportunities.length > 0) {
+          console.log('✅ Hay oportunidades de servicio disponibles');
+          console.log('📋 Primera oportunidad:', opportunities[0]);
+          
+          // 5. Validar estructura de datos
+          const firstOpp = opportunities[0];
+          console.log('🔍 Validando estructura de datos...');
+          console.log('📍 Tiene location:', !!firstOpp.location);
+          console.log('📍 Tiene coordenadas:', firstOpp.location ? 
+            `lat: ${firstOpp.location.latitude}, lng: ${firstOpp.location.longitude}` : 'NO');
+          console.log('📝 Tiene descripción:', !!firstOpp.description);
+          console.log('🏷️ Tiene item:', !!firstOpp.item);
+          console.log('🏢 Tiene área:', !!firstOpp.area);
+          
+          // 6. Probar carga de propuestas para la primera oportunidad
+          if (firstOpp._id) {
+            console.log('💼 Cargando propuestas para la primera oportunidad...');
+            const proposals = await loadProposalsByDamage(firstOpp._id);
+            console.log('📊 Propuestas encontradas:', proposals.length);
+            
+            if (proposals.length > 0) {
+              console.log('✅ Hay propuestas disponibles');
+              console.log('💼 Primera propuesta:', proposals[0]);
+            } else {
+              console.log('ℹ️ No hay propuestas para esta oportunidad');
+            }
+          }
+          
+        } else {
+          console.log('⚠️ No hay oportunidades de servicio disponibles');
+        }
+        
+        // 7. Validar marcadores en el mapa
+        console.log('📍 Validando marcadores en el mapa...');
+        console.log('📍 Marcadores actuales:', damageMarkers.length);
+        
+        if (damageMarkers.length > 0) {
+          console.log('✅ Hay marcadores en el mapa');
+          damageMarkers.forEach((marker, index) => {
+            console.log(`📍 Marcador ${index + 1}:`, {
+              lat: marker.marker.getLatLng().lat,
+              lng: marker.marker.getLatLng().lng,
+              visible: map.hasLayer(marker.marker),
+              type: marker.data.isProposalMarker ? 'Propuesta' : 'Oportunidad'
+            });
+          });
+        } else {
+          console.log('⚠️ No hay marcadores en el mapa');
+        }
+        
+        console.log('✅ ===== VALIDACIÓN COMPLETADA =====');
+        return true;
+        
+      } catch (error) {
+        console.error('❌ Error en validación:', error);
+        return false;
+      }
+    }
+
+    // Función para validación completa del sistema
+    async function fullSystemValidation() {
+      console.log('🔍 ===== VALIDACIÓN COMPLETA DEL SISTEMA =====');
+      
+      try {
+        // 1. Validación básica
+        const basicValidation = await validateMapData();
+        if (!basicValidation) {
+          console.error('❌ Validación básica falló');
+          return false;
+        }
+        
+        // 2. Cargar marcadores normales
+        console.log('📍 Cargando marcadores normales...');
+        await loadAndShowMarkers();
+        
+        // 3. Si es cliente, cargar propuestas
+        if (userProfile === 'client') {
+          console.log('💼 Cargando propuestas como marcadores...');
+          await loadProposalsAsMarkers();
+        }
+        
+        // 4. Validación final
+        console.log('🔍 Validación final...');
+        console.log('📍 Total de marcadores:', damageMarkers.length);
+        console.log('📍 Marcadores visibles:', damageMarkers.filter(m => map.hasLayer(m.marker)).length);
+        
+        const opportunityMarkers = damageMarkers.filter(m => !m.data.isProposalMarker);
+        const proposalMarkers = damageMarkers.filter(m => m.data.isProposalMarker);
+        
+        console.log('📍 Marcadores de oportunidades:', opportunityMarkers.length);
+        console.log('📍 Marcadores de propuestas:', proposalMarkers.length);
+        
+        console.log('✅ ===== VALIDACIÓN COMPLETA EXITOSA =====');
+        return true;
+        
+      } catch (error) {
+        console.error('❌ Error en validación completa:', error);
+        return false;
+      }
+    }
+
+    // Función para diagnosticar problemas con marcadores
+    async function diagnoseMarkers() {
+      console.log('🔍 ===== DIAGNÓSTICO DE MARCADORES =====');
+      
+      try {
+        // 1. Verificar estado del mapa
+        console.log('🗺️ Estado del mapa:');
+        console.log('  - Mapa existe:', !!map);
+        console.log('  - Leaflet disponible:', typeof L !== 'undefined');
+        console.log('  - Elemento #map existe:', !!document.getElementById('map'));
+        
+        if (map) {
+          console.log('  - Centro del mapa:', map.getCenter());
+          console.log('  - Zoom del mapa:', map.getZoom());
+          console.log('  - Tamaño del mapa:', map.getSize());
+        }
+        
+        // 2. Verificar autenticación
+        console.log('👤 Estado de autenticación:');
+        console.log('  - Usuario:', !!currentUser);
+        console.log('  - Email:', getUserEmail());
+        console.log('  - Perfil:', userProfile);
+        
+        // 3. Verificar API
+        console.log('🌐 Estado de la API:');
+        console.log('  - API Base URL:', API_BASE_URL);
+        
+        // 4. Probar carga de datos
+        console.log('📊 Probando carga de datos...');
+        const opportunities = await loadDamagesNearby();
+        console.log('  - Oportunidades encontradas:', opportunities.length);
+        
+        if (opportunities.length > 0) {
+          console.log('  - Primera oportunidad:', opportunities[0]);
+          console.log('  - Tiene location:', !!opportunities[0].location);
+          if (opportunities[0].location) {
+            console.log('  - Coordenadas:', {
+              lat: opportunities[0].location.latitude,
+              lng: opportunities[0].location.longitude
+            });
+          }
+        }
+        
+        // 5. Verificar marcadores actuales
+        console.log('📍 Marcadores actuales:');
+        console.log('  - Total marcadores:', damageMarkers.length);
+        
+        if (damageMarkers.length > 0) {
+          damageMarkers.forEach((marker, index) => {
+            console.log(`  - Marcador ${index + 1}:`, {
+              lat: marker.marker.getLatLng().lat,
+              lng: marker.marker.getLatLng().lng,
+              visible: map.hasLayer(marker.marker),
+              type: marker.data.isProposalMarker ? 'Propuesta' : 'Oportunidad'
+            });
+          });
+        }
+        
+        // 6. Intentar crear un marcador de prueba
+        console.log('🧪 Creando marcador de prueba...');
+        if (map && typeof L !== 'undefined') {
+          const testMarker = L.marker([6.2442, -75.5812], {
+            icon: L.divIcon({
+              className: 'test-marker',
+              html: '<div style="background: red; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold;">T</div>',
+              iconSize: [30, 30],
+              iconAnchor: [15, 15]
+            })
+          });
+          
+          testMarker.bindPopup('Marcador de prueba');
+          testMarker.addTo(map);
+          
+          console.log('✅ Marcador de prueba creado y agregado al mapa');
+          
+          // Remover después de 5 segundos
+          setTimeout(() => {
+            map.removeLayer(testMarker);
+            console.log('🧹 Marcador de prueba removido');
+          }, 5000);
+        }
+        
+        console.log('✅ ===== DIAGNÓSTICO COMPLETADO =====');
+        return true;
+        
+      } catch (error) {
+        console.error('❌ Error en diagnóstico:', error);
+        return false;
+      }
+    }
+
+    // Función para crear marcadores de prueba simples
+    async function createTestMarkers() {
+      console.log('🧪 ===== CREANDO MARCADORES DE PRUEBA =====');
+      
+      try {
+        if (!map) {
+          console.error('❌ Mapa no disponible');
+          return false;
+        }
+        
+        // Limpiar marcadores existentes
+        damageMarkers.forEach(marker => {
+          if (marker.marker) {
+            map.removeLayer(marker.marker);
+          }
+        });
+        damageMarkers = [];
+        
+        // Crear marcadores de prueba
+        const testLocations = [
+          { lat: 6.2442, lng: -75.5812, title: 'Prueba 1', color: 'red' },
+          { lat: 6.2500, lng: -75.5800, title: 'Prueba 2', color: 'blue' },
+          { lat: 6.2400, lng: -75.5850, title: 'Prueba 3', color: 'green' }
+        ];
+        
+        testLocations.forEach((location, index) => {
+          const marker = L.marker([location.lat, location.lng], {
+            icon: L.divIcon({
+              className: 'test-marker',
+              html: `<div style="background: ${location.color}; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid white; box-shadow: 0 3px 12px rgba(0,0,0,0.4);">${index + 1}</div>`,
+              iconSize: [40, 40],
+              iconAnchor: [20, 20]
+            })
+          });
+          
+          marker.bindPopup(`<div style="min-width: 150px;"><strong>${location.title}</strong><br>Marcador de prueba ${index + 1}</div>`);
+          marker.addTo(map);
+          
+          damageMarkers.push({
+            marker: marker,
+            data: { title: location.title, isTest: true }
+          });
+          
+          console.log(`✅ Marcador de prueba ${index + 1} creado en:`, location);
+        });
+        
+        console.log(`✅ ${testLocations.length} marcadores de prueba creados`);
+        showNotification(`${testLocations.length} marcadores de prueba creados`, 'success');
+        return true;
+        
+      } catch (error) {
+        console.error('❌ Error creando marcadores de prueba:', error);
+        return false;
+      }
+    }
+
+    // Función para cargar TODOS los daños sin filtros
+    async function loadAllDamagesWithoutFilters() {
+      console.log('🔍 ===== CARGANDO TODOS LOS DAÑOS SIN FILTROS =====');
+      
+      try {
+        if (!map) {
+          console.error('❌ Mapa no disponible');
+          return false;
+        }
+        
+        // Limpiar marcadores existentes
+        damageMarkers.forEach(marker => {
+          if (marker.marker) {
+            map.removeLayer(marker.marker);
+          }
+        });
+        damageMarkers = [];
+        
+        // Cargar todos los daños
+        const allDamages = await loadDamagesNearby();
+        console.log('📊 Total de daños encontrados:', allDamages.length);
+        
+        if (allDamages.length > 0) {
+          console.log('📍 Creando marcadores para TODOS los daños...');
+          let successCount = 0;
+          let errorCount = 0;
+          
+          allDamages.forEach((damage, index) => {
+            try {
+              console.log(`📍 Procesando daño ${index + 1}/${allDamages.length}:`, {
+                id: damage._id,
+                item: damage.item,
+                hasLocation: !!damage.location,
+                isClientRequest: false // Mostrar como oportunidad
+              });
+              
+              addDamageMarker(damage, false);
+              successCount++;
+            } catch (error) {
+              console.error(`❌ Error creando marcador ${index + 1}:`, error);
+              errorCount++;
+            }
+          });
+          
+          console.log(`✅ Marcadores creados: ${successCount} exitosos, ${errorCount} errores`);
+          showNotification(`Se cargaron ${successCount} marcadores (${errorCount} errores)`, 'success');
+        } else {
+          console.log('⚠️ No hay daños disponibles');
+          showNotification('No hay daños disponibles', 'info');
+        }
+        
+        return true;
+        
+      } catch (error) {
+        console.error('❌ Error cargando todos los daños:', error);
+        return false;
+      }
+    }
+
+    // Función para forzar recarga de datos del mapa
+    async function forceReloadMapData() {
+      console.log('🔄 ===== FORZANDO RECARGA DE DATOS =====');
+      
+      try {
+        // Limpiar marcadores existentes
+        console.log('🧹 Limpiando marcadores existentes...');
+        damageMarkers.forEach(marker => {
+          if (marker.marker) {
+            map.removeLayer(marker.marker);
+          }
+        });
+        damageMarkers = [];
+        
+        // Recargar datos
+        console.log('📥 Recargando datos...');
+        await loadAndShowMarkers();
+        
+        console.log('✅ ===== RECARGA COMPLETADA =====');
+        return true;
+        
+      } catch (error) {
+        console.error('❌ Error en recarga:', error);
+        return false;
+      }
+    }
+
+    // Función para cargar y mostrar propuestas como marcadores especiales
+    async function loadProposalsAsMarkers() {
+      console.log('💼 ===== CARGANDO PROPUESTAS COMO MARCADORES =====');
+      
+      try {
+        if (!map) {
+          console.error('❌ Mapa no disponible');
+          return false;
+        }
+        
+        if (userProfile !== 'client') {
+          console.log('ℹ️ Solo los clientes pueden ver propuestas');
+          return false;
+        }
+        
+        // Cargar solicitudes propias
+        const allDamages = await loadDamagesNearby();
+        const clientRequests = allDamages.filter(damage => 
+          damage.description && damage.description.includes(getUserEmail())
+        );
+        
+        console.log('💼 Solicitudes propias encontradas:', clientRequests.length);
+        
+        let totalProposals = 0;
+        
+        for (const request of clientRequests) {
+          console.log(`💼 Cargando propuestas para solicitud: ${request._id}`);
+          const proposals = await loadProposalsByDamage(request._id);
+          console.log(`💼 Propuestas encontradas: ${proposals.length}`);
+          
+          totalProposals += proposals.length;
+          
+          // Crear marcador especial para propuestas
+          if (proposals.length > 0) {
+            const proposalMarker = createProposalMarker(request, proposals);
+            if (proposalMarker) {
+              damageMarkers.push({
+                marker: proposalMarker,
+                data: { ...request, proposals, isProposalMarker: true }
+              });
+            }
+          }
+        }
+        
+        console.log(`✅ Total de propuestas cargadas: ${totalProposals}`);
+        showNotification(`Se cargaron ${totalProposals} propuestas`, 'success');
+        return true;
+        
+      } catch (error) {
+        console.error('❌ Error cargando propuestas:', error);
+        showNotification('Error cargando propuestas', 'error');
+        return false;
+      }
+    }
+
+    // Función para crear marcador especial de propuestas
+    function createProposalMarker(request, proposals) {
+      try {
+        if (!request.location) {
+          console.warn('⚠️ Solicitud sin ubicación:', request._id);
+          return null;
+        }
+        
+        const lat = typeof request.location.latitude === 'object' 
+          ? request.location.latitude.$numberDouble || request.location.latitude
+          : request.location.latitude;
+        const lng = typeof request.location.longitude === 'object' 
+          ? request.location.longitude.$numberDouble || request.location.longitude
+          : request.location.longitude;
+        
+        if (isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
+          console.warn('⚠️ Coordenadas inválidas:', { lat, lng });
+          return null;
+        }
+        
+        // Crear marcador especial para propuestas
+        const marker = L.marker([parseFloat(lat), parseFloat(lng)], {
+          icon: L.divIcon({
+            className: 'proposal-marker',
+            html: `<div style="background: #34a853; color: white; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; border: 3px solid white; box-shadow: 0 3px 12px rgba(0,0,0,0.4);">💼</div>`,
+            iconSize: [50, 50],
+            iconAnchor: [25, 25]
+          })
+        });
+        
+        // Crear popup con información de propuestas
+        const popupContent = `
+          <div style="min-width: 250px;">
+            <div style="font-weight: 600; margin-bottom: 8px; font-size: 18px; color: #34a853;">💼 Propuestas Recibidas</div>
+            <div style="font-weight: 500; margin-bottom: 4px; font-size: 16px;">${request.item || 'Sin título'}</div>
+            <div style="color: #5f6368; font-size: 14px; margin-bottom: 12px;">${request.description || 'Sin descripción'}</div>
+            
+            <div style="background: #e8f5e8; border: 1px solid #34a853; border-radius: 8px; padding: 8px; margin-bottom: 12px;">
+              <div style="color: #137333; font-size: 12px; font-weight: 600; margin-bottom: 2px;">📊 Estado</div>
+              <div style="color: #137333; font-size: 11px;">${proposals.length} propuesta${proposals.length !== 1 ? 's' : ''} recibida${proposals.length !== 1 ? 's' : ''}</div>
+            </div>
+            
+            <div style="max-height: 200px; overflow-y: auto; margin-bottom: 12px;">
+              ${proposals.map((proposal, index) => `
+                <div style="background: #f8f9fa; border: 1px solid #e8eaed; border-radius: 6px; padding: 8px; margin-bottom: 6px;">
+                  <div style="font-weight: 600; font-size: 12px; color: #1a73e8; margin-bottom: 2px;">Propuesta ${index + 1}</div>
+                  <div style="font-size: 11px; color: #5f6368; margin-bottom: 2px;">Técnico: ${proposal.technicianName || 'No especificado'}</div>
+                  <div style="font-size: 11px; color: #5f6368; margin-bottom: 2px;">Presupuesto: $${proposal.budget ? parseInt(proposal.budget).toLocaleString() : 'No especificado'} COP</div>
+                  <div style="font-size: 11px; color: #5f6368;">Estado: ${proposal.status || 'Pendiente'}</div>
+                </div>
+              `).join('')}
+            </div>
+            
+            <button onclick="showRequestsView()" style="background: #34a853; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">Ver Todas las Propuestas</button>
+          </div>
+        `;
+        
+        marker.bindPopup(popupContent);
+        
+        console.log('💼 Marcador de propuestas creado:', {
+          lat: parseFloat(lat),
+          lng: parseFloat(lng),
+          proposals: proposals.length
+        });
+        
+        return marker;
+        
+      } catch (error) {
+        console.error('❌ Error creando marcador de propuestas:', error);
+        return null;
+      }
+    }
+
     // Hacer las funciones disponibles globalmente
     window.debugSystem = debugSystem;
     window.debugAuth = debugAuth;
     window.forceInitializeMap = forceInitializeMap;
     window.testEndpoints = testEndpoints;
+    window.validateMapData = validateMapData;
+    window.fullSystemValidation = fullSystemValidation;
+    window.diagnoseMarkers = diagnoseMarkers;
+    window.createTestMarkers = createTestMarkers;
+    window.loadAllDamagesWithoutFilters = loadAllDamagesWithoutFilters;
+    window.forceReloadMapData = forceReloadMapData;
+    window.loadProposalsAsMarkers = loadProposalsAsMarkers;
 
     // Conectar Socket.IO
     function connectSocket() {
@@ -2153,7 +2714,9 @@
 
     // Mostrar vista del mapa
     function showMapView() {
-      switchTab('map');
+      // NO llamar a switchTab aquí para evitar bucle infinito
+      // switchTab('map'); // ← ESTO CAUSABA EL BUCLE INFINITO
+      
       // Forzar redimensionamiento del mapa cuando se muestre
       if (map) {
         setTimeout(() => {
