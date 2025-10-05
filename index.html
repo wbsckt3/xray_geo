@@ -921,17 +921,40 @@
     // Función para probar conectividad de la API
     async function testAPIConnectivity() {
       console.log('🔍 ===== PROBANDO CONECTIVIDAD DE LA API =====');
+      console.log('🔍 Email del usuario:', getUserEmail());
+      
+      if (!getUserEmail()) {
+        console.error('❌ No hay email de usuario para la prueba');
+        return null;
+      }
+      
+      // Función auxiliar para crear timeout manual
+      function createTimeoutPromise(ms) {
+        return new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout')), ms);
+        });
+      }
       
       // Probar HTTPS primero
       try {
         console.log('🔒 Probando HTTPS...');
-        const httpsResponse = await fetch(`${API_BASE_URL}/damages/nearby?latitude=6.2442&longitude=-75.5812&radius=20000`, {
+        const httpsUrl = `${API_BASE_URL}/damages/nearby?latitude=6.2442&longitude=-75.5812&radius=20000`;
+        console.log('🔗 URL HTTPS:', httpsUrl);
+        
+        const httpsPromise = fetch(httpsUrl, {
           method: 'GET',
           headers: {
             'x-user-email': getUserEmail()
-          },
-          signal: AbortSignal.timeout(5000) // 5 segundos timeout
+          }
         });
+        
+        const httpsResponse = await Promise.race([
+          httpsPromise,
+          createTimeoutPromise(8000)
+        ]);
+        
+        console.log('📡 HTTPS Response status:', httpsResponse.status);
+        console.log('📡 HTTPS Response ok:', httpsResponse.ok);
         
         if (httpsResponse.ok) {
           console.log('✅ HTTPS funciona correctamente');
@@ -946,13 +969,23 @@
       // Probar HTTP como fallback
       try {
         console.log('🔓 Probando HTTP como fallback...');
-        const httpResponse = await fetch(`${API_BASE_URL_HTTP}/damages/nearby?latitude=6.2442&longitude=-75.5812&radius=20000`, {
+        const httpUrl = `${API_BASE_URL_HTTP}/damages/nearby?latitude=6.2442&longitude=-75.5812&radius=20000`;
+        console.log('🔗 URL HTTP:', httpUrl);
+        
+        const httpPromise = fetch(httpUrl, {
           method: 'GET',
           headers: {
             'x-user-email': getUserEmail()
-          },
-          signal: AbortSignal.timeout(5000) // 5 segundos timeout
+          }
         });
+        
+        const httpResponse = await Promise.race([
+          httpPromise,
+          createTimeoutPromise(8000)
+        ]);
+        
+        console.log('📡 HTTP Response status:', httpResponse.status);
+        console.log('📡 HTTP Response ok:', httpResponse.ok);
         
         if (httpResponse.ok) {
           console.log('✅ HTTP funciona como fallback');
@@ -971,23 +1004,67 @@
     // Función global para probar conectividad (disponible en consola)
     window.testAPIConnectivity = testAPIConnectivity;
 
+    // Función para cargar marcadores directamente sin testAPIConnectivity
+    async function loadMarkersDirectly() {
+      console.log('🚀 ===== CARGA DIRECTA DE MARCADORES =====');
+      
+      showNotification('🚀 Cargando marcadores directamente...', 'info');
+      
+      try {
+        // Verificar estado básico
+        if (!window.map) {
+          showNotification('❌ No hay mapa disponible', 'error');
+          return;
+        }
+        
+        if (!getUserEmail()) {
+          showNotification('❌ No hay usuario autenticado', 'error');
+          return;
+        }
+        
+        showNotification('✅ Estado básico OK - Mapa y usuario disponibles', 'success');
+        console.log('✅ Estado básico OK - Mapa y usuario disponibles');
+        
+        // Llamar directamente a loadAndShowMarkers
+        showNotification('📡 Llamando a loadAndShowMarkers...', 'info');
+        await loadAndShowMarkers();
+        
+        // Verificar resultado
+        if (damageMarkers && damageMarkers.length > 0) {
+          showNotification(`✅ Se cargaron ${damageMarkers.length} marcadores`, 'success');
+          
+          // Forzar visualización
+          setTimeout(() => {
+            forceShowMarkers();
+          }, 500);
+        } else {
+          showNotification('⚠️ No se crearon marcadores - Revisar logs', 'warning');
+        }
+        
+      } catch (error) {
+        console.error('Error en carga directa:', error);
+        showNotification(`❌ Error en carga directa: ${error.message}`, 'error');
+      }
+    }
+
     // Función para forzar visualización de marcadores
     function forceShowMarkers() {
       console.log('🎯 ===== FORZANDO VISUALIZACIÓN DE MARCADORES =====');
       
       if (!window.map) {
         console.error('❌ No hay mapa disponible');
-        showNotification('No hay mapa disponible', 'error');
+        showNotification('❌ No hay mapa disponible', 'error');
         return;
       }
       
       if (!damageMarkers || damageMarkers.length === 0) {
         console.log('ℹ️ No hay marcadores para mostrar');
-        showNotification('No hay marcadores para mostrar', 'info');
+        showNotification('ℹ️ No hay marcadores para mostrar', 'info');
         return;
       }
       
       console.log(`📍 Mostrando ${damageMarkers.length} marcadores`);
+      showNotification(`🎯 Centrando mapa en ${damageMarkers.length} marcadores...`, 'info');
       
       // Crear array de coordenadas para centrar el mapa
       const coordinates = damageMarkers.map(marker => marker.marker.getLatLng());
@@ -1005,7 +1082,7 @@
       window.map.invalidateSize();
       
       console.log('✅ Mapa centrado en marcadores');
-      showNotification(`Mapa centrado en ${damageMarkers.length} marcadores`, 'success');
+      showNotification(`✅ Mapa centrado en ${damageMarkers.length} marcadores`, 'success');
     }
 
     // Función para probar conectividad desde la UI
@@ -1062,11 +1139,23 @@
           
         } else {
           showNotification('❌ No hay conectividad con la API', 'error');
+          // Intentar carga directa sin testAPIConnectivity
+          showNotification('Intentando carga directa...', 'info');
+          await loadAndShowMarkers();
         }
         
       } catch (error) {
         console.error('Error en testAPIConnectivityUI:', error);
         showNotification('❌ Error probando conectividad', 'error');
+        
+        // Intentar carga directa como último recurso
+        try {
+          showNotification('Intentando carga directa como último recurso...', 'info');
+          await loadAndShowMarkers();
+        } catch (directError) {
+          console.error('Error en carga directa:', directError);
+          showNotification('❌ Error en carga directa', 'error');
+        }
       }
     }
 
@@ -1636,6 +1725,9 @@
         // Mostrar marcadores
         if (damages && damages.length > 0) {
           console.log('📍 Creando marcadores...');
+          console.log('📍 damageMarkers antes del bucle:', damageMarkers.length);
+          showNotification(`📍 Creando ${damages.length} marcadores...`, 'info');
+          
           let successCount = 0;
           let errorCount = 0;
           
@@ -1649,20 +1741,35 @@
                 isClientRequest
               });
               
+              showNotification(`📍 Procesando marcador ${index + 1}/${damages.length}...`, 'info');
+              
+              console.log(`📍 Llamando addDamageMarker para marcador ${index + 1}...`);
               addDamageMarker(damage, isClientRequest);
+              console.log(`📍 addDamageMarker completado para marcador ${index + 1}. damageMarkers ahora tiene:`, damageMarkers.length);
+              
               successCount++;
             } catch (error) {
               console.error(`❌ Error creando marcador ${index + 1}:`, error);
+              showNotification(`❌ Error en marcador ${index + 1}: ${error.message}`, 'error');
               errorCount++;
             }
           });
           
           console.log(`✅ Marcadores creados: ${successCount} exitosos, ${errorCount} errores`);
+          console.log(`✅ damageMarkers final:`, damageMarkers.length);
+          console.log(`✅ damageMarkers contenido:`, damageMarkers);
           
           const message = userProfile === 'client' 
             ? `Se cargaron ${successCount} de tus solicitudes`
             : `Se cargaron ${successCount} oportunidades de servicio`;
           showNotification(message, 'success');
+          
+          // Mostrar información detallada en notificación
+          if (damageMarkers.length > 0) {
+            showNotification(`✅ Array damageMarkers tiene ${damageMarkers.length} elementos`, 'success');
+          } else {
+            showNotification(`⚠️ Array damageMarkers está vacío (${successCount} procesados)`, 'warning');
+          }
         } else {
           const message = userProfile === 'client'
             ? 'No tienes solicitudes de servicio creadas'
@@ -1789,15 +1896,23 @@
         
         console.log('📍 Marcador agregado al mapa exitosamente');
       
+      console.log('📍 Antes de agregar a damageMarkers. Array actual:', damageMarkers.length);
+      
       damageMarkers.push({
         marker: marker,
         data: damage
       });
       
+      console.log('📍 Después de agregar a damageMarkers. Array actual:', damageMarkers.length);
+      console.log('📍 Último elemento agregado:', damageMarkers[damageMarkers.length - 1]);
+      
         console.log('✅ ===== MARCADOR COMPLETADO =====');
       console.log('✅ Marcador agregado exitosamente. Total damageMarkers:', damageMarkers.length);
       console.log('✅ Marcador lat/lng:', marker.getLatLng());
         console.log('✅ Marcador en el mapa:', window.map.hasLayer(marker));
+        
+        // Mostrar información en notificación para móvil
+        showNotification(`✅ Marcador ${damageMarkers.length} creado en ${lat.toFixed(4)}, ${lng.toFixed(4)}`, 'success');
         
         // Verificar que el marcador sea visible
         setTimeout(() => {
@@ -3357,6 +3472,9 @@
               <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                 <button class="btn outline" onclick="forceShowMarkers()" style="flex: 1;">
                   🎯 Mostrar Marcadores
+                </button>
+                <button class="btn outline" onclick="loadMarkersDirectly()" style="flex: 1;">
+                  🚀 Carga Directa
                 </button>
               </div>
               <button class="btn danger full" onclick="logout()">Cerrar Sesión</button>
