@@ -3319,9 +3319,9 @@
     // Función para obtener daños cercanos desde la API
     async function loadDamagesNearby() {
       console.log('🔍 Cargando daños cercanos...');
-      console.log('🔍 currentUser:', currentUser);
+      console.log('🔍 currentUser:', window.currentUser);
       console.log('🔍 getUserEmail():', getUserEmail());
-      console.log('🔍 userProfile:', userProfile);
+      console.log('🔍 userProfile:', window.userProfile);
       
       // Si no hay ubicación del usuario, usar ubicación por defecto (Medellín)
       let latitude = 6.2442;
@@ -3340,7 +3340,7 @@
         const url = `${API_BASE_URL}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
         console.log('🔗 URL de la API:', url);
         console.log('👤 Email del usuario:', getUserEmail());
-        console.log('👤 currentUser completo:', currentUser);
+        console.log('👤 currentUser completo:', window.currentUser);
         
         // Aumentar el radio a 20km para capturar más daños
         console.log('📡 Enviando petición fetch...');
