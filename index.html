@@ -1485,7 +1485,7 @@
       console.log('📍 ===== CREANDO MARCADOR =====');
       console.log('📍 Damage completo:', damage);
       
-      if (!map) {
+      if (!window.map) {
         console.error('❌ No hay mapa disponible para agregar marcador');
         return;
       }
@@ -1584,7 +1584,7 @@
       marker.bindPopup(popupContent);
         
         console.log('📍 Agregando marcador al mapa...');
-      marker.addTo(map);
+      marker.addTo(window.map);
         
         console.log('📍 Marcador agregado al mapa exitosamente');
       
@@ -1596,14 +1596,14 @@
         console.log('✅ ===== MARCADOR COMPLETADO =====');
       console.log('✅ Marcador agregado exitosamente. Total damageMarkers:', damageMarkers.length);
       console.log('✅ Marcador lat/lng:', marker.getLatLng());
-        console.log('✅ Marcador en el mapa:', map.hasLayer(marker));
+        console.log('✅ Marcador en el mapa:', window.map.hasLayer(marker));
         
         // Verificar que el marcador sea visible
         setTimeout(() => {
           console.log('🔍 Verificación del marcador después de 1 segundo:');
-          console.log('🔍 Marcador en el mapa:', map.hasLayer(marker));
+          console.log('🔍 Marcador en el mapa:', window.map.hasLayer(marker));
           console.log('🔍 Posición del marcador:', marker.getLatLng());
-          console.log('🔍 Bounds del mapa:', map.getBounds());
+          console.log('🔍 Bounds del mapa:', window.map.getBounds());
         }, 1000);
         
       } catch (error) {
@@ -2780,8 +2780,8 @@
       loadingCard.className = 'card visible';
       
       // Configurar título según perfil
-      const title = userProfile === 'client' ? 'Mis Solicitudes de Servicio' : 'Oportunidades de Servicio Cercanas';
-      const loadingText = userProfile === 'client' ? 'Cargando solicitudes...' : 'Cargando oportunidades...';
+      const title = window.userProfile === 'client' ? 'Mis Solicitudes de Servicio' : 'Oportunidades de Servicio Cercanas';
+      const loadingText = window.userProfile === 'client' ? 'Cargando solicitudes...' : 'Cargando oportunidades...';
       
       loadingCard.innerHTML = `
         <div class="card-header">
@@ -2803,7 +2803,7 @@
       container.appendChild(loadingCard);
       
       try {
-        if (userProfile === 'client') {
+        if (window.userProfile === 'client') {
           // Perfil Cliente: Mostrar sus propias solicitudes
           console.log('🏢 Cargando solicitudes del cliente...');
           await loadClientRequests();
@@ -2847,7 +2847,7 @@
           console.log('⚠️ No hay solicitudes disponibles');
           loadingCard.innerHTML = `
             <div class="card-header">
-              <h3 class="card-title">Oportunidades de Servicio Cercanas</h3>
+              <h3 class="card-title">${title}</h3>
               <button class="card-close" onclick="hideCard()">&times;</button>
             </div>
             <div class="card-body">
@@ -2864,7 +2864,7 @@
         } else {
           loadingCard.innerHTML = `
             <div class="card-header">
-              <h3 class="card-title">Oportunidades de Servicio Cercanas</h3>
+              <h3 class="card-title">${title}</h3>
               <button class="card-close" onclick="hideCard()">&times;</button>
             </div>
             <div class="card-body">
