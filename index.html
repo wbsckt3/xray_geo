@@ -1383,11 +1383,11 @@
             };
             
             // Centrar mapa en ubicación del usuario
-            map.setView([userLocation.lat, userLocation.lng], 15);
+            window.map.setView([userLocation.lat, userLocation.lng], 15);
             
             // Agregar marcador del usuario
             if (userMarker) {
-              map.removeLayer(userMarker);
+              window.map.removeLayer(userMarker);
             }
             
             userMarker = L.marker([userLocation.lat, userLocation.lng], {
@@ -2176,7 +2176,7 @@
             console.log(`📍 Marcador ${index + 1}:`, {
               lat: marker.marker.getLatLng().lat,
               lng: marker.marker.getLatLng().lng,
-              visible: map.hasLayer(marker.marker),
+              visible: window.map.hasLayer(marker.marker),
               type: marker.data.isProposalMarker ? 'Propuesta' : 'Oportunidad'
             });
           });
@@ -2218,7 +2218,7 @@
         // 4. Validación final
         console.log('🔍 Validación final...');
         console.log('📍 Total de marcadores:', damageMarkers.length);
-        console.log('📍 Marcadores visibles:', damageMarkers.filter(m => map.hasLayer(m.marker)).length);
+        console.log('📍 Marcadores visibles:', damageMarkers.filter(m => window.map.hasLayer(m.marker)).length);
         
         const opportunityMarkers = damageMarkers.filter(m => !m.data.isProposalMarker);
         const proposalMarkers = damageMarkers.filter(m => m.data.isProposalMarker);
@@ -2287,7 +2287,7 @@
             console.log(`  - Marcador ${index + 1}:`, {
               lat: marker.marker.getLatLng().lat,
               lng: marker.marker.getLatLng().lng,
-              visible: map.hasLayer(marker.marker),
+              visible: window.map.hasLayer(marker.marker),
               type: marker.data.isProposalMarker ? 'Propuesta' : 'Oportunidad'
             });
           });
@@ -2306,13 +2306,13 @@
           });
           
           testMarker.bindPopup('Marcador de prueba');
-          testMarker.addTo(map);
+          testMarker.addTo(window.map);
           
           console.log('✅ Marcador de prueba creado y agregado al mapa');
           
           // Remover después de 5 segundos
           setTimeout(() => {
-            map.removeLayer(testMarker);
+            window.map.removeLayer(testMarker);
             console.log('🧹 Marcador de prueba removido');
           }, 5000);
         }
@@ -2339,7 +2339,7 @@
         // Limpiar marcadores existentes
         damageMarkers.forEach(marker => {
           if (marker.marker) {
-            map.removeLayer(marker.marker);
+            window.map.removeLayer(marker.marker);
           }
         });
         damageMarkers = [];
@@ -2395,7 +2395,7 @@
         // Limpiar marcadores existentes
         damageMarkers.forEach(marker => {
           if (marker.marker) {
-            map.removeLayer(marker.marker);
+            window.map.removeLayer(marker.marker);
           }
         });
         damageMarkers = [];
@@ -2450,7 +2450,7 @@
         console.log('🧹 Limpiando marcadores existentes...');
         damageMarkers.forEach(marker => {
           if (marker.marker) {
-            map.removeLayer(marker.marker);
+            window.map.removeLayer(marker.marker);
           }
         });
         damageMarkers = [];
@@ -3262,7 +3262,7 @@
       // Limpiar marcadores existentes
       damageMarkers.forEach(marker => {
         if (marker.marker) {
-          map.removeLayer(marker.marker);
+          window.map.removeLayer(marker.marker);
         }
       });
       damageMarkers = [];
