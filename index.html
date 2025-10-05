@@ -3575,34 +3575,64 @@
       }
       
       try {
-        // Probar conectividad primero
-        const workingAPI = await testAPIConnectivity();
+        // Intentar HTTPS primero, luego HTTP como fallback
+        let workingAPI = null;
+        let response = null;
+        
+        // Probar HTTPS primero
+        try {
+          console.log('🔒 Probando HTTPS...');
+          const httpsUrl = `${API_BASE_URL}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
+          console.log('🔗 URL HTTPS:', httpsUrl);
+          
+          response = await fetch(httpsUrl, {
+            headers: {
+              'x-user-email': getUserEmail()
+            },
+            signal: AbortSignal.timeout(8000)
+          });
+          
+          if (response.ok) {
+            workingAPI = API_BASE_URL;
+            console.log('✅ HTTPS funciona');
+          } else {
+            console.log('⚠️ HTTPS responde con error:', response.status);
+          }
+        } catch (httpsError) {
+          console.log('❌ HTTPS falló:', httpsError.message);
+        }
+        
+        // Si HTTPS falló, probar HTTP
         if (!workingAPI) {
+          try {
+            console.log('🔓 Probando HTTP como fallback...');
+            const httpUrl = `${API_BASE_URL_HTTP}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
+            console.log('🔗 URL HTTP:', httpUrl);
+            
+            response = await fetch(httpUrl, {
+              headers: {
+                'x-user-email': getUserEmail()
+              },
+              signal: AbortSignal.timeout(8000)
+            });
+            
+            if (response.ok) {
+              workingAPI = API_BASE_URL_HTTP;
+              console.log('✅ HTTP funciona como fallback');
+            } else {
+              console.log('⚠️ HTTP responde con error:', response.status);
+            }
+          } catch (httpError) {
+            console.log('❌ HTTP también falló:', httpError.message);
+          }
+        }
+        
+        if (!workingAPI || !response) {
           console.error('❌ No hay conectividad con la API');
           return [];
         }
         
-        console.log('🌐 Haciendo petición a la API...');
-        const url = `${workingAPI}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
-        console.log('🔗 URL de la API:', url);
-        console.log('👤 Email del usuario:', getUserEmail());
-        console.log('👤 currentUser completo:', currentUser);
-        
-        // Aumentar el radio a 20km para capturar más daños
-        console.log('📡 Enviando petición fetch...');
-        console.log('📡 Headers enviados:', { 'x-user-email': getUserEmail() });
-        
-        const response = await fetch(url, {
-          headers: {
-            'x-user-email': getUserEmail()
-          },
-          signal: AbortSignal.timeout(10000) // 10 segundos timeout
-        });
-        
         console.log('📡 Response status:', response.status);
-        console.log('📡 Response ok:', response.ok);
-        
-        console.log('📡 Respuesta de la API:', response.status, response.statusText);
         console.log('📡 Response ok:', response.ok);
         
         if (!response.ok) {
@@ -3613,14 +3643,26 @@
         
         const responseData = await response.json();
         console.log('📊 Datos recibidos de la API:', responseData);
+        console.log('📊 Tipo de responseData:', typeof responseData);
+        console.log('📊 responseData.data existe:', !!responseData.data);
+        console.log('📊 responseData.data es array:', Array.isArray(responseData.data));
         
         const damages = responseData.data || [];
         console.log(`✅ Se encontraron ${damages.length} daños reales`);
+        console.log('✅ damages es array:', Array.isArray(damages));
         
         if (damages.length > 0) {
           console.log('🔍 Primer daño encontrado:', damages[0]);
+          console.log('🔍 Estructura del primer daño:', {
+            id: damages[0]._id,
+            item: damages[0].item,
+            area: damages[0].area,
+            hasLocation: !!damages[0].location,
+            locationType: typeof damages[0].location
+          });
         }
         
+        console.log('🔄 Devolviendo damages:', damages);
         return damages;
       } catch (error) {
         console.warn('⚠️ Servidor no disponible, retornando array vacío:', error.message);
