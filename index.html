@@ -281,22 +281,6 @@
       <div class="map-container">
         <div id="map"></div>
         <!-- Botón flotante de diagnóstico -->
-        <div id="map-diagnostic-btn" style="position: absolute; top: 10px; right: 10px; z-index: 1000; display: none;">
-          <button onclick="testAPIConnectivityUI()" style="
-            background: rgba(0,0,0,0.7); 
-            color: white; 
-            border: none; 
-            border-radius: 50%; 
-            width: 50px; 
-            height: 50px; 
-            font-size: 20px; 
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            transition: all 0.3s ease;
-          " onmouseover="this.style.background='rgba(0,0,0,0.9)'" onmouseout="this.style.background='rgba(0,0,0,0.7)'">
-            🔍
-          </button>
-        </div>
       </div>
     </div>
 
@@ -810,10 +794,6 @@
       currentTab = tab;
       
       // Ocultar botón de diagnóstico si no estamos en el mapa
-      const diagnosticBtn = document.getElementById('map-diagnostic-btn');
-      if (diagnosticBtn) {
-        diagnosticBtn.style.display = tab === 'map' ? 'block' : 'none';
-      }
       
       // Limpiar todos los estados de loading primero
       clearAllLoadingStates();
@@ -942,25 +922,167 @@
     // Función global para probar conectividad (disponible en consola)
     window.testAPIConnectivity = testAPIConnectivity;
 
-    // Función simplificada para cargar marcadores
-    async function loadMarkersDirectly() {
-      showNotification('Cargando marcadores...', 'info');
+    // Funciones para manejar localStorage de oportunidades
+    function saveOpportunitiesToStorage(opportunities) {
+      try {
+        const coordinates = opportunities.map(opp => ({
+          id: opp._id,
+          lat: opp.location?.latitude || opp.lat,
+          lng: opp.location?.longitude || opp.lng,
+          title: `${opp.item || 'Sin título'} - ${opp.area || 'Sin área'}`,
+          description: opp.description || 'Sin descripción',
+          image: opp.image || '',
+          isClientRequest: opp.description && opp.description.includes(getUserEmail())
+        }));
+        
+        localStorage.setItem('opportunities_coordinates', JSON.stringify(coordinates));
+        console.log(`✅ Guardadas ${coordinates.length} oportunidades en localStorage`);
+        return coordinates;
+      } catch (error) {
+        console.error('Error guardando oportunidades:', error);
+        return [];
+      }
+    }
+
+    function loadOpportunitiesFromStorage() {
+      try {
+        const stored = localStorage.getItem('opportunities_coordinates');
+        if (stored) {
+          const coordinates = JSON.parse(stored);
+          console.log(`✅ Cargadas ${coordinates.length} oportunidades desde localStorage`);
+          return coordinates;
+        }
+        return [];
+      } catch (error) {
+        console.error('Error cargando oportunidades:', error);
+        return [];
+      }
+    }
+
+    function clearOpportunitiesFromStorage() {
+      localStorage.removeItem('opportunities_coordinates');
+      console.log('✅ Oportunidades limpiadas de localStorage');
+    }
+
+    // Función para cargar datos de la API y guardarlos en localStorage
+    async function loadOpportunitiesFromAPI() {
+      try {
+        showNotification('Cargando oportunidades...', 'info');
+        
+        let damages = [];
+        
+        if (userProfile === 'client') {
+          const allDamages = await loadDamagesNearby();
+          damages = allDamages.filter(damage => 
+            damage.description && damage.description.includes(getUserEmail())
+          );
+        } else if (userProfile === 'technician') {
+          damages = await loadDamagesNearby();
+        } else {
+          showNotification('Perfil no reconocido', 'error');
+          return [];
+        }
+        
+        if (damages && damages.length > 0) {
+          const coordinates = saveOpportunitiesToStorage(damages);
+          const message = userProfile === 'client' 
+            ? `Se cargaron ${damages.length} de tus solicitudes`
+            : `Se cargaron ${damages.length} oportunidades de servicio`;
+          showNotification(message, 'success');
+          return coordinates;
+        } else {
+          const message = userProfile === 'client'
+            ? 'No tienes solicitudes de servicio creadas'
+            : 'No hay oportunidades de servicio en tu área';
+          showNotification(message, 'info');
+          return [];
+        }
+        
+      } catch (error) {
+        showNotification('Error cargando oportunidades', 'error');
+        return [];
+      }
+    }
+
+    // Función para cargar marcadores desde localStorage
+    function loadMarkersFromStorage() {
+      if (!window.map || typeof L === 'undefined') {
+        showNotification('Mapa no disponible', 'error');
+        return;
+      }
       
-      if (!window.map || !getUserEmail()) {
-        showNotification('Error: Mapa o usuario no disponible', 'error');
+      // Limpiar marcadores existentes
+      damageMarkers.forEach(marker => {
+        if (marker.marker) {
+          window.map.removeLayer(marker.marker);
+        }
+      });
+      damageMarkers = [];
+      
+      const coordinates = loadOpportunitiesFromStorage();
+      
+      if (coordinates.length > 0) {
+        coordinates.forEach(coord => {
+          addMarkerFromCoordinates(coord);
+        });
+        
+        showNotification(`Se mostraron ${coordinates.length} marcadores`, 'success');
+        forceShowMarkers();
+      } else {
+        showNotification('No hay marcadores para mostrar', 'info');
+      }
+    }
+
+    // Función para crear marcador desde coordenadas
+    function addMarkerFromCoordinates(coord) {
+      if (!window.map || typeof L === 'undefined' || !coord.lat || !coord.lng) {
         return;
       }
       
       try {
-        await loadAndShowMarkers();
-        if (damageMarkers.length > 0) {
-          showNotification(`Se cargaron ${damageMarkers.length} marcadores`, 'success');
-          forceShowMarkers();
-        } else {
-          showNotification('No se encontraron marcadores', 'warning');
-        }
+        const marker = L.marker([parseFloat(coord.lat), parseFloat(coord.lng)], {
+          icon: L.divIcon({
+            className: 'damage-marker',
+            html: `<div style="background: #4285f4; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; border: 3px solid white; box-shadow: 0 3px 12px rgba(0,0,0,0.4);">⚠️</div>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+          })
+        });
+        
+        // Crear popup
+        const popupContent = `
+          <div style="min-width: 200px;">
+            <img src="${coord.image}" alt="${coord.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" onerror="this.src='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='">
+            <div style="font-weight: 600; margin-bottom: 4px; font-size: 16px;">${coord.title}</div>
+            <div style="color: #5f6368; font-size: 14px; margin-bottom: 8px;">${coord.description}</div>
+            ${coord.isClientRequest ? 
+              '<div style="background: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px; padding: 8px; margin-bottom: 12px;"><div style="color: #2e7d32; font-size: 12px; font-weight: 600; margin-bottom: 2px;">🏢 Tu Solicitud</div><div style="color: #2e7d32; font-size: 11px;">Esta es una solicitud de servicio que has creado</div></div><button onclick="showRequestsView()" style="background: #4caf50; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">Ver Propuestas</button>' :
+              '<div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 8px; margin-bottom: 12px;"><div style="color: #856404; font-size: 12px; font-weight: 600; margin-bottom: 2px;">⚠️ Oportunidad de Servicio</div><div style="color: #856404; font-size: 11px;">Empresa solicita servicio técnico especializado</div></div><button onclick="showBidModal(\'' + coord.id + '\')" style="background: #1a73e8; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">Enviar Propuesta</button>'
+            }
+          </div>
+        `;
+
+        marker.bindPopup(popupContent);
+        marker.addTo(window.map);
+        
+        damageMarkers.push({
+          marker: marker,
+          data: coord
+        });
+        
       } catch (error) {
-        showNotification('Error cargando marcadores', 'error');
+        console.error('Error creando marcador:', error);
+      }
+    }
+
+    // Función para cargar marcadores (nueva lógica)
+    async function loadMarkersDirectly() {
+      // Primero cargar datos de la API y guardarlos en localStorage
+      const coordinates = await loadOpportunitiesFromAPI();
+      
+      if (coordinates.length > 0) {
+        // Luego cargar marcadores desde localStorage
+        loadMarkersFromStorage();
       }
     }
 
@@ -1453,54 +1575,8 @@
 
     // Cargar y mostrar marcadores según el perfil del usuario
     async function loadAndShowMarkers() {
-      if (!window.map || !currentUser || !getUserEmail()) {
-        showNotification('Error: Mapa o usuario no disponible', 'error');
-        return;
-      }
-      
-      // Limpiar marcadores existentes
-      damageMarkers.forEach(marker => {
-        if (marker.marker) {
-          window.map.removeLayer(marker.marker);
-        }
-      });
-      damageMarkers = [];
-      
-      try {
-        let damages = [];
-        
-        if (userProfile === 'client') {
-          const allDamages = await loadDamagesNearby();
-          damages = allDamages.filter(damage => 
-            damage.description && damage.description.includes(getUserEmail())
-          );
-        } else if (userProfile === 'technician') {
-          damages = await loadDamagesNearby();
-        } else {
-          showNotification('Perfil no reconocido', 'error');
-          return;
-        }
-        
-        if (damages && damages.length > 0) {
-          const isClientRequest = userProfile === 'client';
-          damages.forEach(damage => {
-            addDamageMarker(damage, isClientRequest);
-          });
-          
-          const message = userProfile === 'client' 
-            ? `Se cargaron ${damages.length} de tus solicitudes`
-            : `Se cargaron ${damages.length} oportunidades de servicio`;
-          showNotification(message, 'success');
-        } else {
-          const message = userProfile === 'client'
-            ? 'No tienes solicitudes de servicio creadas'
-            : 'No hay oportunidades de servicio en tu área';
-          showNotification(message, 'info');
-        }
-        
-      } catch (error) {
-        showNotification('Error cargando marcadores', 'error');
-      }
+      // Usar la nueva lógica: cargar datos de API → localStorage → marcadores
+      await loadMarkersDirectly();
     }
 
     function addDamageMarker(damage, isClientRequest = false) {
@@ -2690,28 +2766,20 @@
 
     // Mostrar vista del mapa
     async function showMapView() {
-      // NO llamar a switchTab aquí para evitar bucle infinito
-      // switchTab('map'); // ← ESTO CAUSABA EL BUCLE INFINITO
-      
-      // Mostrar botón de diagnóstico
-      const diagnosticBtn = document.getElementById('map-diagnostic-btn');
-      if (diagnosticBtn) {
-        diagnosticBtn.style.display = 'block';
-      }
-      
       // Forzar redimensionamiento del mapa cuando se muestre
-      if (map) {
+      if (window.map) {
         setTimeout(() => {
-          map.invalidateSize();
+          window.map.invalidateSize();
         }, 100);
       }
       
-      // Recargar daños cuando se muestre el mapa
-      try {
-        await loadAndShowMarkers();
-        console.log('✅ Marcadores cargados en showMapView');
-      } catch (error) {
-        console.error('❌ Error recargando daños en showMapView:', error);
+      // Cargar marcadores desde localStorage si existen
+      const stored = localStorage.getItem('opportunities_coordinates');
+      if (stored) {
+        loadMarkersFromStorage();
+      } else {
+        // Si no hay datos en localStorage, cargar desde API
+        await loadMarkersDirectly();
       }
     }
 
@@ -3122,19 +3190,11 @@
                 </button>
               </div>
               <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <button class="btn outline" onclick="testAPIConnectivityUI()" style="flex: 1;">
-                  🔍 Probar API
-                </button>
-                <button class="btn outline" onclick="loadAndShowMarkers()" style="flex: 1;">
-                  📍 Recargar Mapa
-                </button>
-              </div>
-              <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <button class="btn outline" onclick="forceShowMarkers()" style="flex: 1;">
-                  🎯 Mostrar Marcadores
-                </button>
                 <button class="btn outline" onclick="loadMarkersDirectly()" style="flex: 1;">
-                  🚀 Carga Directa
+                  📍 Cargar Marcadores
+                </button>
+                <button class="btn outline" onclick="loadMarkersFromStorage()" style="flex: 1;">
+                  🗺️ Mostrar Mapa
                 </button>
               </div>
               <button class="btn danger full" onclick="logout()">Cerrar Sesión</button>
