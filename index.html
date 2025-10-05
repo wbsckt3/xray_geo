@@ -489,6 +489,7 @@
 
     // Configuración de la API
     const API_BASE_URL = 'https://www.refactorii.com/api/tenant';
+    const API_BASE_URL_HTTP = 'http://www.refactorii.com/api/tenant'; // Fallback HTTP
     const SOCKET_URL = 'https://www.refactorii.com';
 
     // ===== FUNCIONES GLOBALES (fuera de DOMContentLoaded) =====
@@ -893,6 +894,59 @@
     function getUserEmail() {
       return (window.currentUser || currentUser) ? (window.currentUser || currentUser).Email : '';
     }
+
+    // Función para probar conectividad de la API
+    async function testAPIConnectivity() {
+      console.log('🔍 ===== PROBANDO CONECTIVIDAD DE LA API =====');
+      
+      // Probar HTTPS primero
+      try {
+        console.log('🔒 Probando HTTPS...');
+        const httpsResponse = await fetch(`${API_BASE_URL}/damages/nearby?latitude=6.2442&longitude=-75.5812&radius=20000`, {
+          method: 'GET',
+          headers: {
+            'x-user-email': getUserEmail()
+          },
+          signal: AbortSignal.timeout(5000) // 5 segundos timeout
+        });
+        
+        if (httpsResponse.ok) {
+          console.log('✅ HTTPS funciona correctamente');
+          return API_BASE_URL;
+        } else {
+          console.log('⚠️ HTTPS responde pero con error:', httpsResponse.status);
+        }
+      } catch (error) {
+        console.log('❌ HTTPS falló:', error.message);
+      }
+      
+      // Probar HTTP como fallback
+      try {
+        console.log('🔓 Probando HTTP como fallback...');
+        const httpResponse = await fetch(`${API_BASE_URL_HTTP}/damages/nearby?latitude=6.2442&longitude=-75.5812&radius=20000`, {
+          method: 'GET',
+          headers: {
+            'x-user-email': getUserEmail()
+          },
+          signal: AbortSignal.timeout(5000) // 5 segundos timeout
+        });
+        
+        if (httpResponse.ok) {
+          console.log('✅ HTTP funciona como fallback');
+          return API_BASE_URL_HTTP;
+        } else {
+          console.log('⚠️ HTTP responde pero con error:', httpResponse.status);
+        }
+      } catch (error) {
+        console.log('❌ HTTP también falló:', error.message);
+      }
+      
+      console.log('❌ Ninguna conexión funciona');
+      return null;
+    }
+
+    // Función global para probar conectividad (disponible en consola)
+    window.testAPIConnectivity = testAPIConnectivity;
 
 
     // Inicializar aplicación
@@ -3380,8 +3434,15 @@
       }
       
       try {
+        // Probar conectividad primero
+        const workingAPI = await testAPIConnectivity();
+        if (!workingAPI) {
+          console.error('❌ No hay conectividad con la API');
+          return [];
+        }
+        
         console.log('🌐 Haciendo petición a la API...');
-        const url = `${API_BASE_URL}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
+        const url = `${workingAPI}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
         console.log('🔗 URL de la API:', url);
         console.log('👤 Email del usuario:', getUserEmail());
         console.log('👤 currentUser completo:', currentUser);
@@ -3393,7 +3454,8 @@
         const response = await fetch(url, {
           headers: {
             'x-user-email': getUserEmail()
-          }
+          },
+          signal: AbortSignal.timeout(10000) // 10 segundos timeout
         });
         
         console.log('📡 Response status:', response.status);
