@@ -898,62 +898,24 @@
       return (window.currentUser || currentUser) ? (window.currentUser || currentUser).Email : '';
     }
 
-    // Función simplificada para probar conectividad
-    async function testAPIConnectivity() {
-      try {
-        const response = await fetch(`${API_BASE_URL}/damages/nearby?latitude=6.2442&longitude=-75.5812&radius=20000`, {
-          method: 'GET',
-          headers: { 'x-user-email': getUserEmail() }
-        });
-        return response.ok ? API_BASE_URL : null;
-      } catch (error) {
-        try {
-          const response = await fetch(`${API_BASE_URL_HTTP}/damages/nearby?latitude=6.2442&longitude=-75.5812&radius=20000`, {
-            method: 'GET',
-            headers: { 'x-user-email': getUserEmail() }
-          });
-          return response.ok ? API_BASE_URL_HTTP : null;
-        } catch (httpError) {
-          return null;
-        }
-      }
-    }
-
-    // Función global para probar conectividad (disponible en consola)
-    window.testAPIConnectivity = testAPIConnectivity;
 
     // Funciones para manejar localStorage de oportunidades
     function saveOpportunitiesToStorage(opportunities) {
       try {
-        console.log('💾 Guardando oportunidades en localStorage:', opportunities.length);
-        
-        const coordinates = opportunities.map((opp, index) => {
-          const coord = {
-            id: opp._id,
-            lat: opp.location?.latitude || opp.lat,
-            lng: opp.location?.longitude || opp.lng,
-            title: `${opp.item || 'Sin título'} - ${opp.area || 'Sin área'}`,
-            description: opp.description || 'Sin descripción',
-            image: opp.image || '',
-            isClientRequest: opp.description && opp.description.includes(getUserEmail())
-          };
-          
-          console.log(`💾 Oportunidad ${index + 1}:`, {
-            id: coord.id,
-            lat: coord.lat,
-            lng: coord.lng,
-            title: coord.title,
-            hasLocation: !!opp.location
-          });
-          
-          return coord;
-        });
+        const coordinates = opportunities.map(opp => ({
+          id: opp._id,
+          lat: opp.location?.latitude || opp.lat,
+          lng: opp.location?.longitude || opp.lng,
+          title: `${opp.item || 'Sin título'} - ${opp.area || 'Sin área'}`,
+          description: opp.description || 'Sin descripción',
+          image: opp.image || '',
+          isClientRequest: opp.description && opp.description.includes(getUserEmail())
+        }));
         
         localStorage.setItem('opportunities_coordinates', JSON.stringify(coordinates));
-        console.log(`✅ Guardadas ${coordinates.length} oportunidades en localStorage`);
         return coordinates;
       } catch (error) {
-        console.error('❌ Error guardando oportunidades:', error);
+        console.error('Error guardando oportunidades:', error);
         return [];
       }
     }
@@ -962,39 +924,22 @@
       try {
         const stored = localStorage.getItem('opportunities_coordinates');
         if (stored) {
-          const coordinates = JSON.parse(stored);
-          console.log(`✅ Cargadas ${coordinates.length} oportunidades desde localStorage`);
-          
-          // Mostrar detalles de cada coordenada
-          coordinates.forEach((coord, index) => {
-            console.log(`📍 Coordenada ${index + 1}:`, {
-              id: coord.id,
-              lat: coord.lat,
-              lng: coord.lng,
-              title: coord.title
-            });
-          });
-          
-          return coordinates;
-        } else {
-          console.log('ℹ️ No hay datos en localStorage');
-          return [];
+          return JSON.parse(stored);
         }
+        return [];
       } catch (error) {
-        console.error('❌ Error cargando oportunidades:', error);
+        console.error('Error cargando oportunidades:', error);
         return [];
       }
     }
 
     function clearOpportunitiesFromStorage() {
       localStorage.removeItem('opportunities_coordinates');
-      console.log('✅ Oportunidades limpiadas de localStorage');
     }
 
     // Función para cargar datos de la API y guardarlos en localStorage
     async function loadOpportunitiesFromAPI() {
       try {
-        showNotification('Cargando oportunidades...', 'info');
         
         let damages = [];
         
@@ -1006,27 +951,17 @@
         } else if (userProfile === 'technician') {
           damages = await loadDamagesNearby();
         } else {
-          showNotification('Perfil no reconocido', 'error');
           return [];
         }
         
         if (damages && damages.length > 0) {
           const coordinates = saveOpportunitiesToStorage(damages);
-          const message = userProfile === 'client' 
-            ? `Se cargaron ${damages.length} de tus solicitudes`
-            : `Se cargaron ${damages.length} oportunidades de servicio`;
-          showNotification(message, 'success');
           return coordinates;
         } else {
-          const message = userProfile === 'client'
-            ? 'No tienes solicitudes de servicio creadas'
-            : 'No hay oportunidades de servicio en tu área';
-          showNotification(message, 'info');
           return [];
         }
         
       } catch (error) {
-        showNotification('Error cargando oportunidades', 'error');
         return [];
       }
     }
@@ -1062,21 +997,11 @@
 
     // Función para crear marcador desde coordenadas
     function addMarkerFromCoordinates(coord) {
-      console.log('📍 Creando marcador desde coordenadas:', coord);
-      
       if (!window.map || typeof L === 'undefined' || !coord.lat || !coord.lng) {
-        console.error('❌ No se puede crear marcador:', {
-          hasMap: !!window.map,
-          hasLeaflet: typeof L !== 'undefined',
-          hasLat: !!coord.lat,
-          hasLng: !!coord.lng,
-          coord: coord
-        });
         return;
       }
       
       try {
-        console.log('📍 Creando marcador Leaflet en:', coord.lat, coord.lng);
         const marker = L.marker([parseFloat(coord.lat), parseFloat(coord.lng)], {
           icon: L.divIcon({
             className: 'damage-marker',
@@ -1100,7 +1025,6 @@
         `;
 
         marker.bindPopup(popupContent);
-        console.log('📍 Agregando marcador al mapa');
         marker.addTo(window.map);
         
         damageMarkers.push({
@@ -1108,16 +1032,8 @@
           data: coord
         });
         
-        console.log('✅ Marcador agregado. Total damageMarkers:', damageMarkers.length);
-        
-        // Verificar que el marcador se agregó
-        setTimeout(() => {
-          console.log('📍 Marcador en el mapa:', window.map.hasLayer(marker));
-          console.log('📍 Posición del marcador:', marker.getLatLng());
-        }, 100);
-        
       } catch (error) {
-        console.error('❌ Error creando marcador:', error);
+        console.error('Error creando marcador:', error);
       }
     }
 
@@ -1138,35 +1054,16 @@
         return;
       }
       
-      // Si hay marcadores, centrar en ellos
       const group = new L.featureGroup(damageMarkers.map(marker => marker.marker));
       window.map.fitBounds(group.getBounds().pad(0.1));
       
-      // Asegurar que el zoom no sea muy lejano
       if (window.map.getZoom() > 15) {
         window.map.setZoom(15);
       }
       
       window.map.invalidateSize();
-      console.log('📍 Mapa centrado en marcadores');
     }
 
-    // Función simplificada para probar conectividad
-    async function testAPIConnectivityUI() {
-      showNotification('Probando API...', 'info');
-      
-      try {
-        const workingAPI = await testAPIConnectivity();
-        if (workingAPI) {
-          showNotification('API conectada', 'success');
-          await loadAndShowMarkers();
-        } else {
-          showNotification('Error de conectividad', 'error');
-        }
-      } catch (error) {
-        showNotification('Error probando API', 'error');
-      }
-    }
 
 
     // Inicializar aplicación
@@ -1384,21 +1281,15 @@
             accuracy: position.coords.accuracy
           };
           
-          console.log('📍 Ubicación obtenida:', userLocation);
-          
           // Centrar mapa en ubicación del usuario
           if (window.map) {
-            console.log('📍 Centrando mapa en:', userLocation.lat, userLocation.lng);
-            // Centrar y hacer zoom
             window.map.setView([userLocation.lat, userLocation.lng], 15);
             
             // Agregar marcador del usuario
             if (userMarker) {
-              console.log('📍 Removiendo marcador anterior del usuario');
               window.map.removeLayer(userMarker);
             }
             
-            console.log('📍 Creando nuevo marcador del usuario');
             userMarker = L.marker([userLocation.lat, userLocation.lng], {
               icon: L.divIcon({
                 className: 'user-marker',
@@ -1408,19 +1299,8 @@
               })
             });
             
-            console.log('📍 Agregando marcador del usuario al mapa');
             userMarker.addTo(window.map);
-            
-            // Verificar que el marcador se agregó
-            setTimeout(() => {
-              console.log('📍 Marcador del usuario en el mapa:', window.map.hasLayer(userMarker));
-              console.log('📍 Posición del marcador:', userMarker.getLatLng());
-            }, 500);
-            
-            // Forzar redibujado del mapa
             window.map.invalidateSize();
-          } else {
-            console.error('❌ No hay mapa disponible para agregar marcador del usuario');
           }
           
           showNotification('Ubicación obtenida correctamente', 'success');
@@ -2422,16 +2302,6 @@
     }
 
     // Hacer las funciones disponibles globalmente
-    window.debugSystem = debugSystem;
-    window.debugAuth = debugAuth;
-    window.forceInitializeMap = forceInitializeMap;
-    window.testEndpoints = testEndpoints;
-    window.validateMapData = validateMapData;
-    window.fullSystemValidation = fullSystemValidation;
-    window.diagnoseMarkers = diagnoseMarkers;
-    window.createTestMarkers = createTestMarkers;
-    window.loadAllDamagesWithoutFilters = loadAllDamagesWithoutFilters;
-    window.forceReloadMapData = forceReloadMapData;
     window.loadProposalsAsMarkers = loadProposalsAsMarkers;
 
     // Conectar Socket.IO
@@ -3288,14 +3158,6 @@
                   ${isServiceProvider ? 'Desregistrarse' : 'Registrarse como Técnico'}
                 </button>
               </div>
-              <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <button class="btn outline" onclick="loadMarkersDirectly()" style="flex: 1;">
-                  📍 Cargar Marcadores
-                </button>
-                <button class="btn outline" onclick="loadMarkersFromStorage()" style="flex: 1;">
-                  🗺️ Mostrar Mapa
-                </button>
-              </div>
               <button class="btn danger full" onclick="logout()">Cerrar Sesión</button>
             </div>
           </div>
@@ -3517,62 +3379,15 @@
       }
       
       try {
-        // Intentar HTTPS primero, luego HTTP como fallback
-        let workingAPI = null;
-        let response = null;
+        // Usar API directamente
+        const url = `${API_BASE_URL}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
+        console.log('🌐 Haciendo petición a la API:', url);
         
-        // Probar HTTPS primero
-        try {
-          console.log('🔒 Probando HTTPS...');
-          const httpsUrl = `${API_BASE_URL}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
-          console.log('🔗 URL HTTPS:', httpsUrl);
-          
-          response = await fetch(httpsUrl, {
-            headers: {
-              'x-user-email': getUserEmail()
-            },
-            signal: AbortSignal.timeout(8000)
-          });
-          
-          if (response.ok) {
-            workingAPI = API_BASE_URL;
-            console.log('✅ HTTPS funciona');
-          } else {
-            console.log('⚠️ HTTPS responde con error:', response.status);
+        const response = await fetch(url, {
+          headers: {
+            'x-user-email': getUserEmail()
           }
-        } catch (httpsError) {
-          console.log('❌ HTTPS falló:', httpsError.message);
-        }
-        
-        // Si HTTPS falló, probar HTTP
-        if (!workingAPI) {
-          try {
-            console.log('🔓 Probando HTTP como fallback...');
-            const httpUrl = `${API_BASE_URL_HTTP}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
-            console.log('🔗 URL HTTP:', httpUrl);
-            
-            response = await fetch(httpUrl, {
-              headers: {
-                'x-user-email': getUserEmail()
-              },
-              signal: AbortSignal.timeout(8000)
-            });
-            
-            if (response.ok) {
-              workingAPI = API_BASE_URL_HTTP;
-              console.log('✅ HTTP funciona como fallback');
-            } else {
-              console.log('⚠️ HTTP responde con error:', response.status);
-            }
-          } catch (httpError) {
-            console.log('❌ HTTP también falló:', httpError.message);
-          }
-        }
-        
-        if (!workingAPI || !response) {
-          console.error('❌ No hay conectividad con la API');
-          return [];
-        }
+        });
         
         console.log('📡 Response status:', response.status);
         console.log('📡 Response ok:', response.ok);
