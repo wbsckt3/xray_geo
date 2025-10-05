@@ -868,8 +868,24 @@
 
     // Mostrar overlay de autenticación
     function showAuthOverlay() {
-      document.getElementById('auth-overlay').style.display = 'flex';
-      document.getElementById('main-app').style.display = 'none';
+      console.log('🔄 Mostrando overlay de autenticación...');
+      
+      const authOverlay = document.getElementById('auth-overlay');
+      const mainApp = document.getElementById('main-app');
+      
+      if (authOverlay) {
+        authOverlay.style.display = 'flex';
+        console.log('✅ Auth overlay mostrado');
+      } else {
+        console.error('❌ No se encontró auth-overlay');
+      }
+      
+      if (mainApp) {
+        mainApp.style.display = 'none';
+        console.log('✅ Main app ocultado');
+      } else {
+        console.error('❌ No se encontró main-app');
+      }
     }
 
 
@@ -3529,42 +3545,68 @@
 
     // Cerrar sesión
     function logout() {
-      // Limpiar localStorage
-      localStorage.removeItem('refactorii_token');
-      localStorage.removeItem('token_expiry');
-      localStorage.removeItem('user_data');
-      localStorage.removeItem('user_profile');
+      console.log('🚪 ===== CERRANDO SESIÓN =====');
       
-      // Limpiar variables locales
-      currentUser = null;
-      userProfile = null;
-      selectedProfile = null;
-      
-      // Limpiar variables globales
-      window.currentUser = null;
-      window.userProfile = null;
-      
-      // Limpiar marcadores del mapa
-      if (damageMarkers && damageMarkers.length > 0) {
-        damageMarkers.forEach(marker => {
-          if (marker.marker && window.map) {
-            window.map.removeLayer(marker.marker);
-          }
-        });
-        damageMarkers = [];
-      }
-      
-      // Limpiar ubicación del usuario
-      userLocation = null;
-      if (userMarker && window.map) {
-        window.map.removeLayer(userMarker);
-        userMarker = null;
-      }
-      
-      showAuthOverlay();
-      
-      if (socket) {
-        socket.disconnect();
+      try {
+        // Limpiar localStorage
+        console.log('🧹 Limpiando localStorage...');
+        localStorage.removeItem('refactorii_token');
+        localStorage.removeItem('token_expiry');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('user_profile');
+        console.log('✅ localStorage limpiado');
+        
+        // Limpiar variables locales
+        console.log('🧹 Limpiando variables locales...');
+        currentUser = null;
+        userProfile = null;
+        selectedProfile = null;
+        console.log('✅ Variables locales limpiadas');
+        
+        // Limpiar variables globales
+        console.log('🧹 Limpiando variables globales...');
+        window.currentUser = null;
+        window.userProfile = null;
+        console.log('✅ Variables globales limpiadas');
+        
+        // Limpiar marcadores del mapa
+        console.log('🧹 Limpiando marcadores del mapa...');
+        if (typeof damageMarkers !== 'undefined' && damageMarkers && damageMarkers.length > 0) {
+          damageMarkers.forEach(marker => {
+            if (marker.marker && window.map) {
+              window.map.removeLayer(marker.marker);
+            }
+          });
+          damageMarkers = [];
+          console.log('✅ Marcadores del mapa limpiados');
+        }
+        
+        // Limpiar ubicación del usuario
+        console.log('🧹 Limpiando ubicación del usuario...');
+        userLocation = null;
+        if (typeof userMarker !== 'undefined' && userMarker && window.map) {
+          window.map.removeLayer(userMarker);
+          userMarker = null;
+          console.log('✅ Ubicación del usuario limpiada');
+        }
+        
+        // Mostrar overlay de autenticación
+        console.log('🔄 Mostrando overlay de autenticación...');
+        showAuthOverlay();
+        
+        // Desconectar socket si existe
+        if (typeof socket !== 'undefined' && socket) {
+          console.log('🔌 Desconectando socket...');
+          socket.disconnect();
+          console.log('✅ Socket desconectado');
+        }
+        
+        console.log('✅ ===== SESIÓN CERRADA EXITOSAMENTE =====');
+        
+      } catch (error) {
+        console.error('❌ Error cerrando sesión:', error);
+        // Aún así, intentar mostrar el overlay de autenticación
+        showAuthOverlay();
       }
     }
   </script>
