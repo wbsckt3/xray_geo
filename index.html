@@ -1086,15 +1086,23 @@
       }
     }
 
-    // Función simplificada para centrar marcadores
+    // Función para centrar marcadores
     function forceShowMarkers() {
       if (!window.map || !damageMarkers || damageMarkers.length === 0) {
         return;
       }
       
+      // Si hay marcadores, centrar en ellos
       const group = new L.featureGroup(damageMarkers.map(marker => marker.marker));
       window.map.fitBounds(group.getBounds().pad(0.1));
+      
+      // Asegurar que el zoom no sea muy lejano
+      if (window.map.getZoom() > 15) {
+        window.map.setZoom(15);
+      }
+      
       window.map.invalidateSize();
+      console.log('📍 Mapa centrado en marcadores');
     }
 
     // Función simplificada para probar conectividad
@@ -1330,8 +1338,11 @@
             accuracy: position.coords.accuracy
           };
           
+          console.log('📍 Ubicación obtenida:', userLocation);
+          
           // Centrar mapa en ubicación del usuario
           if (window.map) {
+            // Centrar y hacer zoom
             window.map.setView([userLocation.lat, userLocation.lng], 15);
             
             // Agregar marcador del usuario
@@ -1347,19 +1358,37 @@
                 iconAnchor: [18, 18]
               })
             }).addTo(window.map);
+            
+            // Forzar redibujado del mapa
+            window.map.invalidateSize();
           }
           
-          showNotification('Ubicación obtenida', 'success');
+          showNotification('Ubicación obtenida correctamente', 'success');
           
           // Recargar marcadores con la nueva ubicación
-          loadAndShowMarkers();
+          setTimeout(() => {
+            loadMarkersDirectly();
+          }, 1000);
         },
         (error) => {
-          showNotification('Error obteniendo ubicación', 'error');
+          console.error('Error obteniendo ubicación:', error);
+          let errorMessage = 'Error obteniendo ubicación';
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = 'Permisos de ubicación denegados';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = 'Ubicación no disponible';
+              break;
+            case error.TIMEOUT:
+              errorMessage = 'Tiempo de espera agotado';
+              break;
+          }
+          showNotification(errorMessage, 'error');
         },
         {
           enableHighAccuracy: true,
-          timeout: 8000,
+          timeout: 10000,
           maximumAge: 300000
         }
       );
@@ -2773,6 +2802,16 @@
         }, 100);
       }
       
+      // Centrar mapa en ubicación del usuario si está disponible
+      if (userLocation && userLocation.lat && userLocation.lng) {
+        window.map.setView([userLocation.lat, userLocation.lng], 15);
+        console.log('📍 Mapa centrado en ubicación del usuario:', userLocation.lat, userLocation.lng);
+      } else {
+        // Si no hay ubicación del usuario, centrar en Medellín
+        window.map.setView([6.2442, -75.5812], 12);
+        console.log('📍 Mapa centrado en Medellín por defecto');
+      }
+      
       // Cargar marcadores desde localStorage si existen
       const stored = localStorage.getItem('opportunities_coordinates');
       if (stored) {
@@ -3404,12 +3443,17 @@
       let latitude = 6.2442;
       let longitude = -75.5812;
       
-      if (userLocation) {
+      if (userLocation && userLocation.lat && userLocation.lng) {
         latitude = userLocation.lat;
         longitude = userLocation.lng;
         console.log('📍 Usando ubicación del usuario:', latitude, longitude);
       } else {
         console.log('📍 Usando ubicación por defecto (Medellín):', latitude, longitude);
+        console.log('📍 userLocation disponible:', !!userLocation);
+        if (userLocation) {
+          console.log('📍 userLocation.lat:', userLocation.lat);
+          console.log('📍 userLocation.lng:', userLocation.lng);
+        }
       }
       
       try {
