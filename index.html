@@ -802,11 +802,15 @@
       switch(tab) {
         case 'map':
           console.log('📍 Ejecutando showMapView()');
-          showMapView();
+          showMapView().catch(error => {
+            console.error('❌ Error en showMapView:', error);
+          });
           break;
         case 'requests':
           console.log('📋 Ejecutando showRequestsView()');
-          showTabLoadingOverlay('Cargando Oportunidades Cercanas', 'Buscando oportunidades de servicio...');
+          const requestsTitle = window.userProfile === 'client' ? 'Cargando Mis Solicitudes' : 'Cargando Oportunidades Cercanas';
+          const requestsText = window.userProfile === 'client' ? 'Buscando tus solicitudes...' : 'Buscando oportunidades de servicio...';
+          showTabLoadingOverlay(requestsTitle, requestsText);
           showRequestsView();
           break;
         case 'services':
@@ -2713,7 +2717,7 @@
     }
 
     // Mostrar vista del mapa
-    function showMapView() {
+    async function showMapView() {
       // NO llamar a switchTab aquí para evitar bucle infinito
       // switchTab('map'); // ← ESTO CAUSABA EL BUCLE INFINITO
       
@@ -2725,9 +2729,12 @@
       }
       
       // Recargar daños cuando se muestre el mapa
-      loadAndShowMarkers().catch(error => {
-        console.error('Error recargando daños:', error);
-      });
+      try {
+        await loadAndShowMarkers();
+        console.log('✅ Marcadores cargados en showMapView');
+      } catch (error) {
+        console.error('❌ Error recargando daños en showMapView:', error);
+      }
     }
 
 
@@ -2839,6 +2846,8 @@
             console.log('📋 Solicitudes generadas desde API:', nearbyRequests.length);
           } else {
             console.log('📋 No se encontraron damages en la API');
+            // IMPORTANTE: Limpiar nearbyRequests cuando no hay datos
+            nearbyRequests = [];
           }
         }
         
