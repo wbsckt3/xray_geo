@@ -851,8 +851,11 @@
       if (token && userData) {
         try {
           currentUser = JSON.parse(userData);
+          window.currentUser = currentUser; // Asignar también a window para acceso global
           userProfile = savedProfile; // Cargar perfil guardado
+          window.userProfile = userProfile; // Asignar también a window para acceso global
           console.log('🎭 Perfil cargado:', userProfile);
+          console.log('🎭 Usuario cargado:', currentUser.Email);
           initializeApp();
         } catch (error) {
           console.error('Error parsing user data:', error);
@@ -3307,7 +3310,11 @@
     function toggleServiceProvider() {
       isServiceProvider = !isServiceProvider;
       
+      // Actualizar perfil según el estado
       if (isServiceProvider) {
+        userProfile = 'technician';
+        window.userProfile = 'technician';
+        localStorage.setItem('user_profile', 'technician');
         showNotification('Registrado como técnico', 'success');
         
         if (userLocation) {
@@ -3315,7 +3322,17 @@
           loadNearbyRequests();
         }
       } else {
+        userProfile = 'client';
+        window.userProfile = 'client';
+        localStorage.setItem('user_profile', 'client');
         showNotification('Desregistrado como técnico', 'info');
+      }
+      
+      // Recargar marcadores con el nuevo perfil
+      if (window.map) {
+        loadAndShowMarkers().catch(error => {
+          console.error('Error recargando marcadores:', error);
+        });
       }
     }
 
@@ -3512,13 +3529,38 @@
 
     // Cerrar sesión
     function logout() {
+      // Limpiar localStorage
       localStorage.removeItem('refactorii_token');
       localStorage.removeItem('token_expiry');
       localStorage.removeItem('user_data');
       localStorage.removeItem('user_profile');
+      
+      // Limpiar variables locales
       currentUser = null;
       userProfile = null;
       selectedProfile = null;
+      
+      // Limpiar variables globales
+      window.currentUser = null;
+      window.userProfile = null;
+      
+      // Limpiar marcadores del mapa
+      if (damageMarkers && damageMarkers.length > 0) {
+        damageMarkers.forEach(marker => {
+          if (marker.marker && window.map) {
+            window.map.removeLayer(marker.marker);
+          }
+        });
+        damageMarkers = [];
+      }
+      
+      // Limpiar ubicación del usuario
+      userLocation = null;
+      if (userMarker && window.map) {
+        window.map.removeLayer(userMarker);
+        userMarker = null;
+      }
+      
       showAuthOverlay();
       
       if (socket) {
