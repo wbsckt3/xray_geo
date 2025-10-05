@@ -677,7 +677,9 @@
         console.log('🎭 Perfil seleccionado guardado:', selectedProfile);
         
         currentUser = userData;
+        window.currentUser = userData; // Asignar también a window para acceso global
         userProfile = selectedProfile; // Asignar el perfil seleccionado
+        window.userProfile = selectedProfile; // Asignar también a window para acceso global
         console.log('🔄 Iniciando aplicación con perfil:', userProfile);
         
         // Inicializar la aplicación
@@ -870,7 +872,7 @@
 
     // Función para obtener el email del usuario
     function getUserEmail() {
-      return currentUser ? currentUser.Email : '';
+      return (window.currentUser || currentUser) ? (window.currentUser || currentUser).Email : '';
     }
 
 
@@ -1364,7 +1366,7 @@
     async function loadAndShowMarkers() {
       try {
         console.log('📍 ===== CARGANDO MARCADORES =====');
-        console.log('📍 Mapa:', !!window.map, 'Usuario:', !!window.currentUser, 'Perfil:', window.userProfile);
+        console.log('📍 Mapa:', !!window.map, 'Usuario:', !!currentUser, 'Perfil:', userProfile);
         console.log('📍 API Base URL:', API_BASE_URL);
         console.log('📍 Email usuario:', getUserEmail());
         
@@ -1375,7 +1377,7 @@
           return;
         }
         
-        if (!window.currentUser || !getUserEmail()) {
+        if (!currentUser || !getUserEmail()) {
           console.log('⚠️ Usuario no autenticado');
           showNotification('Usuario no autenticado', 'error');
           return;
@@ -1394,7 +1396,7 @@
         // Cargar datos según perfil
         let damages = [];
         
-        if (window.userProfile === 'client') {
+        if (userProfile === 'client') {
           console.log('🏢 PERFIL EMPRESA: Cargando solicitudes propias...');
           const allDamages = await loadDamagesNearby();
           console.log('🏢 Total de daños encontrados:', allDamages.length);
@@ -1416,7 +1418,7 @@
           });
           console.log('🏢 Solicitudes propias encontradas:', damages.length);
           
-        } else if (window.userProfile === 'technician') {
+        } else if (userProfile === 'technician') {
           console.log('👨‍🔧 PERFIL TÉCNICO: Cargando oportunidades cercanas...');
           damages = await loadDamagesNearby();
           console.log('👨‍🔧 Oportunidades encontradas:', damages.length);
@@ -1431,7 +1433,7 @@
             });
           });
         } else {
-          console.log('⚠️ Perfil no reconocido:', window.userProfile);
+          console.log('⚠️ Perfil no reconocido:', userProfile);
           showNotification('Perfil no reconocido', 'error');
           return;
         }
@@ -1444,7 +1446,7 @@
           
           damages.forEach((damage, index) => {
             try {
-              const isClientRequest = window.userProfile === 'client';
+              const isClientRequest = userProfile === 'client';
               console.log(`📍 Procesando marcador ${index + 1}/${damages.length}:`, {
               id: damage._id,
                 title: damage.item,
@@ -1462,12 +1464,12 @@
           
           console.log(`✅ Marcadores creados: ${successCount} exitosos, ${errorCount} errores`);
           
-          const message = window.userProfile === 'client' 
+          const message = userProfile === 'client' 
             ? `Se cargaron ${successCount} de tus solicitudes`
             : `Se cargaron ${successCount} oportunidades de servicio`;
           showNotification(message, 'success');
         } else {
-          const message = window.userProfile === 'client'
+          const message = userProfile === 'client'
             ? 'No tienes solicitudes de servicio creadas'
             : 'No hay oportunidades de servicio en tu área';
           console.log('ℹ️', message);
@@ -3328,9 +3330,9 @@
     // Función para obtener daños cercanos desde la API
     async function loadDamagesNearby() {
       console.log('🔍 Cargando daños cercanos...');
-      console.log('🔍 currentUser:', window.currentUser);
+      console.log('🔍 currentUser:', currentUser);
       console.log('🔍 getUserEmail():', getUserEmail());
-      console.log('🔍 userProfile:', window.userProfile);
+      console.log('🔍 userProfile:', userProfile);
       
       // Si no hay ubicación del usuario, usar ubicación por defecto (Medellín)
       let latitude = 6.2442;
@@ -3349,7 +3351,7 @@
         const url = `${API_BASE_URL}/damages/nearby?latitude=${latitude}&longitude=${longitude}&radius=20000`;
         console.log('🔗 URL de la API:', url);
         console.log('👤 Email del usuario:', getUserEmail());
-        console.log('👤 currentUser completo:', window.currentUser);
+        console.log('👤 currentUser completo:', currentUser);
         
         // Aumentar el radio a 20km para capturar más daños
         console.log('📡 Enviando petición fetch...');
