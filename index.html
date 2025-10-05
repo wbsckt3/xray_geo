@@ -280,6 +280,23 @@
     <div class="main">
       <div class="map-container">
         <div id="map"></div>
+        <!-- Botón flotante de diagnóstico -->
+        <div id="map-diagnostic-btn" style="position: absolute; top: 10px; right: 10px; z-index: 1000; display: none;">
+          <button onclick="testAPIConnectivityUI()" style="
+            background: rgba(0,0,0,0.7); 
+            color: white; 
+            border: none; 
+            border-radius: 50%; 
+            width: 50px; 
+            height: 50px; 
+            font-size: 20px; 
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+          " onmouseover="this.style.background='rgba(0,0,0,0.9)'" onmouseout="this.style.background='rgba(0,0,0,0.7)'">
+            🔍
+          </button>
+        </div>
       </div>
     </div>
 
@@ -792,6 +809,12 @@
       console.log('🔄 Cambiando a tab:', tab);
       currentTab = tab;
       
+      // Ocultar botón de diagnóstico si no estamos en el mapa
+      const diagnosticBtn = document.getElementById('map-diagnostic-btn');
+      if (diagnosticBtn) {
+        diagnosticBtn.style.display = tab === 'map' ? 'block' : 'none';
+      }
+      
       // Limpiar todos los estados de loading primero
       clearAllLoadingStates();
       
@@ -947,6 +970,34 @@
 
     // Función global para probar conectividad (disponible en consola)
     window.testAPIConnectivity = testAPIConnectivity;
+
+    // Función para probar conectividad desde la UI
+    async function testAPIConnectivityUI() {
+      console.log('🔍 ===== PROBANDO CONECTIVIDAD DESDE UI =====');
+      
+      // Mostrar loading
+      showNotification('Probando conectividad de la API...', 'info');
+      
+      try {
+        const workingAPI = await testAPIConnectivity();
+        
+        if (workingAPI) {
+          const protocol = workingAPI.includes('https') ? 'HTTPS' : 'HTTP';
+          showNotification(`✅ API funciona con ${protocol}`, 'success');
+          
+          // Probar carga de marcadores
+          showNotification('Probando carga de marcadores...', 'info');
+          await loadAndShowMarkers();
+          
+        } else {
+          showNotification('❌ No hay conectividad con la API', 'error');
+        }
+        
+      } catch (error) {
+        console.error('Error en testAPIConnectivityUI:', error);
+        showNotification('❌ Error probando conectividad', 'error');
+      }
+    }
 
 
     // Inicializar aplicación
@@ -2796,6 +2847,12 @@
       // NO llamar a switchTab aquí para evitar bucle infinito
       // switchTab('map'); // ← ESTO CAUSABA EL BUCLE INFINITO
       
+      // Mostrar botón de diagnóstico
+      const diagnosticBtn = document.getElementById('map-diagnostic-btn');
+      if (diagnosticBtn) {
+        diagnosticBtn.style.display = 'block';
+      }
+      
       // Forzar redimensionamiento del mapa cuando se muestre
       if (map) {
         setTimeout(() => {
@@ -3216,6 +3273,14 @@
               <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                 <button class="btn outline" onclick="toggleServiceProvider()" style="flex: 1;">
                   ${isServiceProvider ? 'Desregistrarse' : 'Registrarse como Técnico'}
+                </button>
+              </div>
+              <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button class="btn outline" onclick="testAPIConnectivityUI()" style="flex: 1;">
+                  🔍 Probar API
+                </button>
+                <button class="btn outline" onclick="loadAndShowMarkers()" style="flex: 1;">
+                  📍 Recargar Mapa
                 </button>
               </div>
               <button class="btn danger full" onclick="logout()">Cerrar Sesión</button>
