@@ -971,6 +971,43 @@
     // Función global para probar conectividad (disponible en consola)
     window.testAPIConnectivity = testAPIConnectivity;
 
+    // Función para forzar visualización de marcadores
+    function forceShowMarkers() {
+      console.log('🎯 ===== FORZANDO VISUALIZACIÓN DE MARCADORES =====');
+      
+      if (!window.map) {
+        console.error('❌ No hay mapa disponible');
+        showNotification('No hay mapa disponible', 'error');
+        return;
+      }
+      
+      if (!damageMarkers || damageMarkers.length === 0) {
+        console.log('ℹ️ No hay marcadores para mostrar');
+        showNotification('No hay marcadores para mostrar', 'info');
+        return;
+      }
+      
+      console.log(`📍 Mostrando ${damageMarkers.length} marcadores`);
+      
+      // Crear array de coordenadas para centrar el mapa
+      const coordinates = damageMarkers.map(marker => marker.marker.getLatLng());
+      
+      // Crear bounds para centrar el mapa en todos los marcadores
+      const group = new L.featureGroup(damageMarkers.map(marker => marker.marker));
+      window.map.fitBounds(group.getBounds().pad(0.1));
+      
+      // Asegurar que el zoom no sea muy lejano
+      if (window.map.getZoom() > 15) {
+        window.map.setZoom(15);
+      }
+      
+      // Forzar redibujado del mapa
+      window.map.invalidateSize();
+      
+      console.log('✅ Mapa centrado en marcadores');
+      showNotification(`Mapa centrado en ${damageMarkers.length} marcadores`, 'success');
+    }
+
     // Función para probar conectividad desde la UI
     async function testAPIConnectivityUI() {
       console.log('🔍 ===== PROBANDO CONECTIVIDAD DESDE UI =====');
@@ -987,7 +1024,41 @@
           
           // Probar carga de marcadores
           showNotification('Probando carga de marcadores...', 'info');
+          
+          // Verificar estado del mapa antes de cargar
+          console.log('🗺️ Estado del mapa antes de cargar marcadores:');
+          console.log('  - Mapa existe:', !!window.map);
+          console.log('  - Leaflet disponible:', typeof L !== 'undefined');
+          console.log('  - Marcadores actuales:', damageMarkers ? damageMarkers.length : 'undefined');
+          
+          if (window.map) {
+            console.log('  - Centro del mapa:', window.map.getCenter());
+            console.log('  - Zoom del mapa:', window.map.getZoom());
+            console.log('  - Capas en el mapa:', Object.keys(window.map._layers).length);
+          }
+          
           await loadAndShowMarkers();
+          
+          // Verificar estado después de cargar
+          console.log('🗺️ Estado del mapa después de cargar marcadores:');
+          console.log('  - Marcadores creados:', damageMarkers ? damageMarkers.length : 'undefined');
+          
+          if (damageMarkers && damageMarkers.length > 0) {
+            damageMarkers.forEach((marker, index) => {
+              console.log(`  - Marcador ${index + 1}:`, {
+                lat: marker.marker.getLatLng().lat,
+                lng: marker.marker.getLatLng().lng,
+                enMapa: window.map.hasLayer(marker.marker)
+              });
+            });
+            
+            // Forzar visualización de marcadores
+            setTimeout(() => {
+              forceShowMarkers();
+            }, 1000);
+          } else {
+            showNotification('No se crearon marcadores', 'warning');
+          }
           
         } else {
           showNotification('❌ No hay conectividad con la API', 'error');
@@ -3281,6 +3352,11 @@
                 </button>
                 <button class="btn outline" onclick="loadAndShowMarkers()" style="flex: 1;">
                   📍 Recargar Mapa
+                </button>
+              </div>
+              <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button class="btn outline" onclick="forceShowMarkers()" style="flex: 1;">
+                  🎯 Mostrar Marcadores
                 </button>
               </div>
               <button class="btn danger full" onclick="logout()">Cerrar Sesión</button>
