@@ -925,21 +925,35 @@
     // Funciones para manejar localStorage de oportunidades
     function saveOpportunitiesToStorage(opportunities) {
       try {
-        const coordinates = opportunities.map(opp => ({
-          id: opp._id,
-          lat: opp.location?.latitude || opp.lat,
-          lng: opp.location?.longitude || opp.lng,
-          title: `${opp.item || 'Sin título'} - ${opp.area || 'Sin área'}`,
-          description: opp.description || 'Sin descripción',
-          image: opp.image || '',
-          isClientRequest: opp.description && opp.description.includes(getUserEmail())
-        }));
+        console.log('💾 Guardando oportunidades en localStorage:', opportunities.length);
+        
+        const coordinates = opportunities.map((opp, index) => {
+          const coord = {
+            id: opp._id,
+            lat: opp.location?.latitude || opp.lat,
+            lng: opp.location?.longitude || opp.lng,
+            title: `${opp.item || 'Sin título'} - ${opp.area || 'Sin área'}`,
+            description: opp.description || 'Sin descripción',
+            image: opp.image || '',
+            isClientRequest: opp.description && opp.description.includes(getUserEmail())
+          };
+          
+          console.log(`💾 Oportunidad ${index + 1}:`, {
+            id: coord.id,
+            lat: coord.lat,
+            lng: coord.lng,
+            title: coord.title,
+            hasLocation: !!opp.location
+          });
+          
+          return coord;
+        });
         
         localStorage.setItem('opportunities_coordinates', JSON.stringify(coordinates));
         console.log(`✅ Guardadas ${coordinates.length} oportunidades en localStorage`);
         return coordinates;
       } catch (error) {
-        console.error('Error guardando oportunidades:', error);
+        console.error('❌ Error guardando oportunidades:', error);
         return [];
       }
     }
@@ -950,11 +964,24 @@
         if (stored) {
           const coordinates = JSON.parse(stored);
           console.log(`✅ Cargadas ${coordinates.length} oportunidades desde localStorage`);
+          
+          // Mostrar detalles de cada coordenada
+          coordinates.forEach((coord, index) => {
+            console.log(`📍 Coordenada ${index + 1}:`, {
+              id: coord.id,
+              lat: coord.lat,
+              lng: coord.lng,
+              title: coord.title
+            });
+          });
+          
           return coordinates;
+        } else {
+          console.log('ℹ️ No hay datos en localStorage');
+          return [];
         }
-        return [];
       } catch (error) {
-        console.error('Error cargando oportunidades:', error);
+        console.error('❌ Error cargando oportunidades:', error);
         return [];
       }
     }
@@ -1035,11 +1062,21 @@
 
     // Función para crear marcador desde coordenadas
     function addMarkerFromCoordinates(coord) {
+      console.log('📍 Creando marcador desde coordenadas:', coord);
+      
       if (!window.map || typeof L === 'undefined' || !coord.lat || !coord.lng) {
+        console.error('❌ No se puede crear marcador:', {
+          hasMap: !!window.map,
+          hasLeaflet: typeof L !== 'undefined',
+          hasLat: !!coord.lat,
+          hasLng: !!coord.lng,
+          coord: coord
+        });
         return;
       }
       
       try {
+        console.log('📍 Creando marcador Leaflet en:', coord.lat, coord.lng);
         const marker = L.marker([parseFloat(coord.lat), parseFloat(coord.lng)], {
           icon: L.divIcon({
             className: 'damage-marker',
@@ -1063,6 +1100,7 @@
         `;
 
         marker.bindPopup(popupContent);
+        console.log('📍 Agregando marcador al mapa');
         marker.addTo(window.map);
         
         damageMarkers.push({
@@ -1070,8 +1108,16 @@
           data: coord
         });
         
+        console.log('✅ Marcador agregado. Total damageMarkers:', damageMarkers.length);
+        
+        // Verificar que el marcador se agregó
+        setTimeout(() => {
+          console.log('📍 Marcador en el mapa:', window.map.hasLayer(marker));
+          console.log('📍 Posición del marcador:', marker.getLatLng());
+        }, 100);
+        
       } catch (error) {
-        console.error('Error creando marcador:', error);
+        console.error('❌ Error creando marcador:', error);
       }
     }
 
@@ -1342,14 +1388,17 @@
           
           // Centrar mapa en ubicación del usuario
           if (window.map) {
+            console.log('📍 Centrando mapa en:', userLocation.lat, userLocation.lng);
             // Centrar y hacer zoom
             window.map.setView([userLocation.lat, userLocation.lng], 15);
             
             // Agregar marcador del usuario
             if (userMarker) {
+              console.log('📍 Removiendo marcador anterior del usuario');
               window.map.removeLayer(userMarker);
             }
             
+            console.log('📍 Creando nuevo marcador del usuario');
             userMarker = L.marker([userLocation.lat, userLocation.lng], {
               icon: L.divIcon({
                 className: 'user-marker',
@@ -1357,10 +1406,21 @@
                 iconSize: [36, 36],
                 iconAnchor: [18, 18]
               })
-            }).addTo(window.map);
+            });
+            
+            console.log('📍 Agregando marcador del usuario al mapa');
+            userMarker.addTo(window.map);
+            
+            // Verificar que el marcador se agregó
+            setTimeout(() => {
+              console.log('📍 Marcador del usuario en el mapa:', window.map.hasLayer(userMarker));
+              console.log('📍 Posición del marcador:', userMarker.getLatLng());
+            }, 500);
             
             // Forzar redibujado del mapa
             window.map.invalidateSize();
+          } else {
+            console.error('❌ No hay mapa disponible para agregar marcador del usuario');
           }
           
           showNotification('Ubicación obtenida correctamente', 'success');
